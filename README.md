@@ -10,18 +10,18 @@ This is the code that can reproduce the results in the paper:
 
 ***
 
-Description of core code:
+**Code**
 
 * `download_data.R` use this file to download the data used for the paper. it will be stored in `data/`
 * `nc_simulation.R` run this with `n.sims=100` simulations to reproduce the empirical simulation study with 100 simulations
 * `fit_models_data_analysis` run this to fit the various models for the data analysis (WARNING: will take a long time)
 * `paper_material.Rmd` all code used to create the plots, table, and results referenced in the paper
 
-Description of folders:
+**Folders**
 
 * `samplers/` include the MCMC samplers for all models used
 * `data/` includes all data used.
 * `sim_analysis_functions/` functions used to download data, set up & run simulations, and process results are included here
-*  `sim_results_NC` stores results for the simulation study
-* `data_analysis` stores MCMC chains for the data analysis
-* `figs` png copies of the figures in the paper
+*  `sim_results_NC/` stores results for the simulation study
+* `data_analysis/` stores MCMC chains for the data analysis
+* `figs/` png copies of the figures in the paper
