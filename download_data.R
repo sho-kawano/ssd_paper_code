@@ -1,5 +1,5 @@
 source("sim_analysis_functions/load_county.R")
-key <- "9fb9cc8584a00b7006e7550c685129b65240b9aa" # PUT YOUR CENSUS API HERE
+key <- "" # PUT YOUR CENSUS API HERE
 home_folder <- paste0(getwd(), "/data") 
 
 # download NC only 
