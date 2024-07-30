@@ -3,6 +3,9 @@
 This is the code that can reproduce the results in the paper:
 "Spatially Selected and Dependent Random Effects for Small Area Estimation with Application to Rent Burden".
 
+Note: the MCMC sampler for the SSD model have since been improved, making it *significantly* faster. This can be found at https://github.com/sho-kawano/sparse_sae_code/.
+
+
 *Partial results only:* Due to file sizes, full results are not stored here.
 
 * The repo does not have the full simulation study results, only 4 simulations are included. However, the summary file  `sim_results_NC/results_by_sim.RDA` contain results for full study with 100 simulations.  
