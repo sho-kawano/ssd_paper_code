@@ -4,7 +4,7 @@ library(LaplacesDemon); library(dplyr)
 #' @param iters number of desired iterations to store results for
 #' @param param number of parameters
 #' @param names of the parameters (required for bayesplot)
-mcmc_containers <- function(iters, params, names){
+mcmc_mat <- function(iters, params, names){
   result = matrix(data=NA, nrow=iters, ncol=params)
   dimnames(result) <- list(NULL, names)
   names(dimnames(result)) <- c("iterations", "")
@@ -22,7 +22,6 @@ start_chain <- function(nsim, nthin, nburn){
   print(paste0("Burn-in iterations: ", nburn ))
   return(proc.time())
 }
-
 
 #' Description: combine results from multiple chains into an array 
 #' @param chains a list of posterior samples (a list of MCMC containers) from the same model 
@@ -51,11 +50,11 @@ combineChains <- function(chains){
 #' Description: transforms and changes the dimnames for a MCMC array 
 #' @param samples MCMC samples (matrix or array)
 #' @param par_names names of the new transformed parameters 
-#' @param dim number of dimensions (2 for single chain, 3 for array with multiple chains)
+#' @param dim Optional (default 2) number of dimensions (2 for single chain, 3 for array with multiple chains)
 #' @param transf the FUNCTION used to transform the parameters
 #' @param nchains Optional (default 4).  Number of chains (only used if dim=3)
 #' @returns array with the transformed parameters with dimnames relabeled 
-transfRelabel <- function(samples, par_names, dim, nchains=4, transf=sqrt){
+transform_relabel <- function(samples, par_names, dim=2, nchains=4, transf=sqrt){
   samples <- samples %>% transf()
   if(dim==2){
     dimnames(samples) <- list(iterations=NULL, par_names)
@@ -66,6 +65,5 @@ transfRelabel <- function(samples, par_names, dim, nchains=4, transf=sqrt){
   return(samples)
 } 
 
-transform_relabel <- transfRelabel
 
 

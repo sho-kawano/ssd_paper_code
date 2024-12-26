@@ -4,91 +4,92 @@ library(Matrix)
 library(dplyr)
 
 # this is a file with some utility functions I created 
-source("~/coding/spike_slab_fh/sparse_spatial_fh/mcmc_helper.R")
+source("samplers/mcmc_helper.R")
 
-#' @description: runs one MCMC chain to fit a Spike & Slab BYM SAE model (no logit-intercept)
+#' @description: runs one MCMC chain to fit a SSD model 
 #' @param X the covariate matrix (from model.matrix, include intercept)
 #' @param y the response 
-#' @param D.i known design *variances*
+#' @param d.var known design *variances*
 #' @param A adjacency matrix 
 #' @param ndesired desired size of MCMC sample
 #' @param nburn # of burn in iterations
 #' @param nthin how many iterations to thin by
+#' @param scale_y (Optional) Default T. Scales y and d.var and saves the scale/center in MCMC output. 
 #' @param ini (Optional) list of the initial values for any of the parameters
 #' @param hyp (Optional) list of the hyperparameters - depends on the prior choice 
 #' @param verbose (Optional) Default T. Print statements with prior information & iteration progress. 
 #' @returns list of MCMC containers (matrices) for each set of parameters. matrices compatible with bayesplot
 
-spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin, 
+ssd_fit <- function(X, y, d.var, A, ndesired, nburn, nthin, scale_y=T,
                         hyp = list(), ini = list(),  verbose=T) {
-  if(verbose){
-    print("------------------------------------------------------")
-    print("Fitting SSD random effects model.")
-    print("Priors with the following Hyperparameters assumed: ")
-  }
   nsim <- nthin*ndesired
   n <- nrow(X); j <- ncol(X) # number of covariates INCLUDES intercept 
   
-  # ---- set up containers ----
-  Res_theta <- mcmc_containers(nsim/nthin, n, names=paste0("theta_", 1:n))
+  #  ------------ scale y (if needed)  ------------ 
+  if(scale_y) {
+    center <- mean(y)
+    scale <- sd(y)
+    y <- (y-center)/scale
+    d.var <- d.var /scale^2
+  }
+  else{
+    center <- scale <- NA
+    warning("Default priors assume y & d.var is scaled.")
+  }
+  
+  # ------------ matrices to hold results ------------ 
+  Res_theta <- mcmc_mat(nsim/nthin, n, names=paste0("theta_", 1:n))
   # effects 
-  Res_beta <- mcmc_containers(nsim/nthin, j, colnames(X))
-  Res_v1 <- mcmc_containers(nsim/nthin, n, names=paste0("v1_", 1:n))
-  Res_v2 <- mcmc_containers(nsim/nthin, n, names=paste0("v2_", 1:n))
-  Res_delta <- mcmc_containers(nsim/nthin, n, names=paste0("delta_", 1:n))
+  Res_beta <- mcmc_mat(nsim/nthin, j, colnames(X))
+  Res_v1 <- mcmc_mat(nsim/nthin, n, names=paste0("v1_", 1:n))
+  Res_v2 <- mcmc_mat(nsim/nthin, n, names=paste0("v2_", 1:n))
+  Res_delta <- mcmc_mat(nsim/nthin, n, names=paste0("delta_", 1:n))
   # variance: random effects
-  Res_sigma_1.sq <- mcmc_containers(nsim/nthin, 1, names="sigma_1.sq")
-  Res_sigma_2.sq <- mcmc_containers(nsim/nthin, 1, names="sigma_2.sq")
+  Res_sigma_1.sq <- mcmc_mat(nsim/nthin, 1, names="sigma_1.sq")
+  Res_sigma_2.sq <- mcmc_mat(nsim/nthin, 1, names="sigma_2.sq")
   # inclusion probs (p.delta is the actual posterior incl. prob.)
-  Res_p <- mcmc_containers(nsim/nthin, n, names=paste0("p_", 1:n))
-  Res_p.delta <- mcmc_containers(nsim/nthin, n, names=paste0("p.delta_", 1:n)) 
-  Res_pi <- mcmc_containers(nsim/nthin, 2*n, 
+  Res_p <- mcmc_mat(nsim/nthin, n, names=paste0("p_", 1:n))
+  Res_p.delta <- mcmc_mat(nsim/nthin, n, names=paste0("p.delta_", 1:n)) 
+  Res_pi <- mcmc_mat(nsim/nthin, 2*n, 
                             names=c(paste0("psi1_", 1:n), paste0("psi2_", 1:n)))
   # variance: incl. prob 
-  Res_s1.sq <- mcmc_containers(nsim/nthin, 1, names="s1.sq")
-  Res_s2.sq <- mcmc_containers(nsim/nthin, 1, names="s2.sq")
+  Res_s1.sq <- mcmc_mat(nsim/nthin, 1, names="s1.sq")
+  Res_s2.sq <- mcmc_mat(nsim/nthin, 1, names="s2.sq")
   
-  # ---- hyperparameters  ----
-  # uses default values unless specified via `hyp`
-  # ---- variance of the regression coefficients 
+  # ------------ hyperparameters ------------
+  # uses default values unless specified via `hyp` 
+  
+  # variance of the regression coefficients 
   tau.sq <- ifelse(is.null(hyp$tau.sq), 100^2, hyp$tau.sq)
   
-  # ---- random effect variance 
-  # sigma.sq_vk ~ IG(c_k, d_k) for k=1,2
+  # random effect variances [ sigma.sq ]~ IG(c_k, d_k) for k=1,2
   c1 <- ifelse(is.null(hyp$c1), 5, hyp$c1)
   d1 <- ifelse(is.null(hyp$d1), c1, hyp$d1)
   c2 <- ifelse(is.null(hyp$c2), 5, hyp$c2)
   d2 <- ifelse(is.null(hyp$d2), c2, hyp$d2)
   
-  # --- s.sq_pk ~ IG(a_k, b_k) for k=1,2
+  # logit variances [ s.sq_pk ] ~ IG(a_k, b_k) for k=1,2
   a1 <- ifelse(is.null(hyp$a1), 5, hyp$a1)
   b1 <- ifelse(is.null(hyp$b1), 10, hyp$b1)
   a2 <- ifelse(is.null(hyp$a2), 5, hyp$a2)
   b2 <- ifelse(is.null(hyp$b2), 10, hyp$b2)
-
-  # ----  mu (mean of logit random effects - psi's)
+  
+  # mu (mean of logit random effects - psi's)
   mu <- ifelse(is.null(hyp$mu), 0, hyp$mu) # mean
   
-  # ---- print hyperparameters 
-  if(verbose){
-    print(paste0("beta ~ N_j(0, tau.sq*I) w/ tau.sq: ", paste(tau.sq, sep=", ")))
-    
-    print(paste0("sigma_1.sq ~ IG(c1, d1): ", paste(c1, d1, sep=", ")))
-    print(paste0("sigma_2.sq ~ IG(c2, d2): ", paste(c2, d2, sep=", ")))
-    
-    print(paste0("s1.sq ~ IG(a1, b1): ", paste(a1, b1, sep=", ")))
-    print(paste0("s2.sq ~ IG(a2, b2): ", paste(a2, b2, sep=", ")))
-    
-    print(paste0("mu (mean of logit random effects): ", mu))
-    print("------------------------------------------------------")
-  }
+  # ------------ prior details ------------
+  details <-  paste0("Priors: beta ~ N_j(0, tau.sq*I) w/ tau.sq: ", paste(tau.sq, sep=", "))
+  details <- paste(details, paste0("sigma_1.sq ~ IG(c1, d1): ", paste(c1, d1, sep=", ")), sep=" | ")
+  details <- paste(details, paste0("sigma_2.sq ~ IG(c2, d2): ", paste(c2, d2, sep=", ")), sep=" | ")
+  details <- paste(details, paste0("s1.sq ~ IG(a1, b1): ", paste(a1, b1, sep=", ")), sep=" | ")
+  details <- paste(details, paste0("s2.sq ~ IG(a2, b2): ", paste(a2, b2, sep=", ")), sep=" | ")
+  details <- paste(details, paste0("mu (mean of logit effects): ", mu), sep=" | ")
+  details <- c(details, paste0("Scaling done within function: ", scale_y))
   
-  # ------------ initial values ---------------------------------
+  # ------------ initial values ------------
   # scale parameters 
-  sigma_1.sq <- ifelse(is.null(ini$sigma_1.sq), 
-                       0.5, ini$sigma_1.sq)
-  sigma_2.sq <- ifelse(is.null(ini$sigma_2.sq), 
-                       0.5, ini$sigma_2.sq)
+  sigma_1.sq <- ifelse(is.null(ini$sigma_1.sq), 0.5, ini$sigma_1.sq)
+  sigma_2.sq <- ifelse(is.null(ini$sigma_2.sq), 0.5, ini$sigma_2.sq)
   s1.sq <- ifelse(is.null(ini$s1.sq), 1, ini$s1.sq)
   s2.sq <- ifelse(is.null(ini$s2.sq), 1, ini$s2.sq)
   
@@ -97,8 +98,7 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
   ICAR <- INLA:::inla.scale.model.bym(ICAR) # scaling
   # will be updated per iteration. dgCMatrix class 
   Q_gam <- bdiag( diag(1/tau.sq, nrow=j), 
-                  diag(1, nrow=n)/sigma_1.sq, 
-                  ICAR/sigma_2.sq) 
+                  diag(1, nrow=n)/sigma_1.sq, ICAR/sigma_2.sq) 
   Q_pi <- bdiag(diag(1, nrow=n)/s1.sq,  ICAR/s2.sq) 
   
   # effects
@@ -119,14 +119,15 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
   pi <- c(psi1, psi2) 
   H <- cbind(diag(rep(1, n)), diag(rep(1, n))) # H does not change.
   
-  # -----  latent variables 
+  # latent variables 
   W <- diag(rpg(num=n, h=1, z=0 ))  #BayesLogit:rpg (Polyá-Gamma)  
   
-  # ---- start MCMC chain ----  
-  if(verbose) ptm <- start_chain(nsim, nthin, nburn)
+  #  ------------  start of MCMC chain  ------------ 
+  if(verbose){
+    ptm <- start_chain(nsim, nthin, nburn)
+    pb <- txtProgressBar(min=0, max=nsim+nburn, style=3)
+  }
   for (index in 1:(nsim+nburn)) {
-    if(verbose & (index-nburn)%%1000==0 & index > nburn) print(index-nburn)
-    
     # ---- 1A. update sigma_1.sq (IID)----
     v1 <- gamma[(1:n)+j]
     qform_v1 <- (t(v1)%*%v1) %>% as.numeric() #IID effects
@@ -143,28 +144,18 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
     # ---- 2. update gamma (blocked effects) ----
     # if none of the effects are included... 
     if(all(delta==0)){
-      Q_beta <- bdiag(diag(1/tau.sq, nrow=j))
-      m_beta <- t(X/D.i)%*%y # since v1=0, v2=0
-      Xstd <- X / sqrt(D.i)
-      Sig_beta <- solve(t(Xstd)%*%Xstd + Q_beta)
-      beta <- MASS::mvrnorm(1, mu=Sig_beta%*%m_beta, Sigma=Sig_beta, tol=1e-200)
+      m_beta <- t(X/d.var)%*%y # since v1=0, v2=0
+      Xstd <- X / sqrt(d.var)
+      U_beta <- chol(forceSymmetric(t(Xstd)%*%Xstd + Diagonal(n=j)/tau.sq ))
+      b_beta <- rnorm(j)
+      beta <- backsolve(U_beta, backsolve(U_beta, m_beta, transpose=T) + b_beta)
       gamma <- c(as.numeric(beta), rep(0, n), rep(0, n))
-      
     }else{
-      m_gam <- t(Z/D.i)%*%y
-      Zstd <- Z / sqrt(D.i)
-      Sig_gam <- solve(t(Zstd)%*%Zstd + Q_gam)
-      # sampling all effects (adjustments for lack of symmetry) 
-      gamma <- tryCatch(
-        expr={
-          MASS::mvrnorm(1, mu=Sig_gam%*%m_gam, Sigma=Sig_gam, tol=1e-200)
-        },
-        error = function(e){ # error in case Sigma is not symmetric
-          Sig_gam <- Sig_gam %>% as.matrix() %>% as.symmetric.matrix()
-          MASS::mvrnorm(1, mu=Sig_gam%*%m_gam, Sigma=Sig_gam, tol=1e-200)
-        }
-      )
-      gamma <- gamma %>% as.numeric()
+      m_gam <- t(Z/d.var)%*%y
+      Zstd <- Z / sqrt(d.var)
+      U_gam <- chol(forceSymmetric(t(Zstd)%*%Zstd + Q_gam))
+      b_gam <- rnorm(2*n+j)
+      gamma <- backsolve(U_gam, backsolve(U_gam, m_gam, transpose=T) + b_gam)
       # ! sum to ZERO constraint !
       v1 <- gamma[(1:n)+j]
       v2 <- gamma[(1:n)+n+j]
@@ -189,7 +180,7 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
     beta <- gamma[1:j]
     v1 <- gamma[(1:n)+j]
     v2 <- gamma[(1:n)+n+j]
-    p_delta <- p / (p + (1-p)*exp( 0.5*(v1+v2)^2/D.i - (y-X%*%beta)*(v1+v2)/D.i))
+    p_delta <- p / (p + (1-p)*exp( 0.5*(v1+v2)^2/d.var - (y-X%*%beta)*(v1+v2)/d.var))
     delta <- rbinom(n, size=1, p_delta)
     
     # ---- 4B. update blocked design matrix  ----
@@ -201,12 +192,13 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
     # ---- 5B. update pi (block) ----
     nu <- delta - 1/2
     m_pi <- t(H)%*%nu + Q_pi%*%q_pi 
-    Sig_pi <- solve(t(H)%*%W%*%H + Q_pi)
-    pi <- MASS::mvrnorm(1, mu=Sig_pi%*%m_pi, Sigma=Sig_pi, tol=1e-100)
-    pi <- pi %>% as.numeric()
+    U_pi <- chol(forceSymmetric(t(H)%*%W%*%H + Q_pi))
+    b_pi <- rnorm(2*n)
+    pi <- backsolve(U_pi, backsolve(U_pi, m_pi, transpose=T) + b_pi)
     p <- (H%*%pi)  %>% as.numeric() %>% invlogit()
     
     # ---- save results ----
+    if(verbose) setTxtProgressBar(pb, index)
     if (index > nburn && (index-nburn)%%nthin==0){
       # save theta (small area means)...... 
       Res_theta[(index-nburn)/nthin, ] <- (Z %*% gamma) %>% as.numeric()
@@ -230,16 +222,54 @@ spslBYM_fit <- function(X, y, D.i, A, ndesired, nburn, nthin,
       Res_s2.sq[(index-nburn)/nthin,  ] <- s2.sq
     }	
   }
-  # ---- End MCMC chain ----
+  #  ------------  end of MCMC chain  ------------ 
   if(verbose) print(proc.time() - ptm)
   result_list = list(theta=Res_theta, 
                      beta=Res_beta, v1=Res_v1, v2=Res_v2, delta=Res_delta, 
                      sigma_1.sq = Res_sigma_1.sq, sigma_2.sq = Res_sigma_2.sq,
                      p=Res_p, pi=Res_pi, p.delta=Res_p.delta,
-                     s1.sq = Res_s1.sq, s2.sq=Res_s2.sq
+                     s1.sq = Res_s1.sq, s2.sq=Res_s2.sq, 
+                     prior_details = details, 
+                     center=center, scale=scale
   )
- return(result_list)
+  return(result_list)
 }
 
-spslBYM_ver <- "v4.1 - simplified code. removed logit intercept. changed default priors. now designed to be used with scaled data."
+spslBYM_ver <- "v5. uses backsolve & removed mvn sampler - much faster. removed print statement and added prior_details. added in-function scaling."
 
+
+
+# ---- TESTING ---- 
+# library(tidyverse); library(bayesplot)
+# load('samplers/test_data.RDA')
+# 
+# # scaling done outside the sampler 
+# y <- all_data$povPerc
+# d <- all_data$povPercSE^2
+# center <- mean(y)
+# scale <- sd(y)
+# y.scaled <- (y-center)/scale
+# d.scaled <- d /scale^2
+# 
+# X = model.matrix(~., all_data[, c("degree",  "assistance")])
+# 
+# # scaling done outside the sampler 
+# set.seed(7)
+# post.samples <- ssd_fit(X, y.scaled, d.scaled, A, ndesired = 2000, nburn=1500, nthin=1,
+#                         scale_y = F)
+# post.samples$beta %>% mcmc_dens()
+# post.samples$prior_details
+# 
+# # scaling done INSIDE the sampler 
+# post.samples2 <- ssd_fit(X, y, d, A, ndesired = 2000, nburn=1500, nthin=1, 
+#                          scale_y=T)
+# 
+# post.samples2$beta %>% mcmc_dens()
+# post.samples2$prior_details
+# 
+# theta.hat1 = post.samples$theta %>% colMeans()
+# theta.hat2 = post.samples2$theta %>% colMeans()
+# 
+# # results in the same thing... 
+# plot(theta.hat1, theta.hat2)
+# abline(0, 1)
