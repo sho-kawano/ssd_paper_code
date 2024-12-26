@@ -1,0 +1,266 @@
+---
+title: "NC Simulation Study: MSE Analysis by Area"
+author: "Sho Kawano | September 5, 2024"
+output: pdf_document
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = F, warning = F, message=F)
+library(usmap)
+library(tidyverse)
+library(tidycensus)
+library(patchwork)
+```
+
+
+
+```{r include=F}
+load("data/data_NC/data.RDA")
+load("sim_results_NC/results_by_sim.RDA")
+
+pop <- readRDS("data/nc_data_w_geom.RDS")
+
+tmp.df = errs_all_sims %>% 
+  group_by(model, area) %>%
+  reframe(mse=mean(err^2))
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+tmp.df = tmp.df %>% pivot_wider(names_from = model, values_from = mse) %>%
+  pivot_longer(cols=!c(D.Est, area), names_to = "model", values_to = "mse")
+
+mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>% 
+  left_join(tmp.df, by = join_by(area)) %>% 
+  filter(model!="CAR") %>% 
+  mutate(model=ifelse(model=="New", "SSD", model))
+```
+
+```{r fig.width=7, fig.height=5}
+mse_pltDf %>% 
+  ggplot(aes(x=log(D.Est), y=log(mse) )) +  
+  facet_wrap(~model, nrow=2) +
+  geom_abline(slope=1) + 
+  geom_tile(aes(x=-6, y=-5, width=2, height=2), fill=NA, color="blue")+
+  geom_point(alpha=0.5) +
+  coord_fixed() +
+  xlab("log(MSE) for D.Est") + 
+  ylab("log(MSE) for Models") + 
+  ggtitle("MSE from Direct Estimates vs. Models by Area") +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+Note that the points shown are *averages by area for the 300 simulations*. If a model outperformed the direct estimate for a given area, a point would lie *below* the line. We can see that the SSD model achieves a MSE reductions across the board. 
+
+
+```{r}
+df1 = errs_all_sims %>% 
+  group_by(model, area) %>% 
+  reframe(mse=mean(err^2)) %>% 
+  pivot_wider(names_from = model, values_from = mse) %>%
+  mutate(BYM=D.Est-BYM,
+       DM=D.Est-DM,
+       FH=D.Est-FH,
+       New=D.Est-New) %>%
+  select(-D.Est) %>% 
+  pivot_longer(cols=!area, names_to = "model", values_to = "mse")
+
+df3 = df1 %>% 
+  pivot_wider(names_from = model, values_from = mse) %>%
+  pivot_longer(cols=!area, names_to = "model", values_to = "mse") %>% 
+  group_by(area, model) %>% 
+  reframe( mse_reduction=mse) 
+
+mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>% 
+  left_join(df3, by = join_by(area)) %>% 
+  filter(model!="CAR") 
+```
+
+
+
+```{r}
+# show MSE table 
+mse_pltDf %>% 
+  as.data.frame() %>% 
+  select(GEOID, NAME, area, model, mse_reduction) %>% 
+  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
+  group_by(model) %>% 
+  summarise(Min=min(mse_reduction), 
+            Q1=quantile(mse_reduction, 0.25), 
+            Mean=mean(mse_reduction),
+            Median=median(mse_reduction), 
+            Q3=quantile(mse_reduction, 0.75), 
+            Max=max(mse_reduction)
+            ) %>% 
+  arrange(desc(Mean)) %>% knitr::kable()
+```
+
+There are a few areas where using a model increases MSE (enclosed in rectangle). The increase in MSE is *lower* for SSD model than all other models. This is a major factor in why the SSD model outperforms others. This can also be seen from the summary statistics of the MSE **reduction** relative to the direct estimate (on original scale) shown below: $MSE - MSE_{D.Est}$.
+
+
+```{r include=F}
+# re-computing everything RELATIVE to the SSD model 
+
+load("data/data_NC/data.RDA")
+load("sim_results_NC/results_by_sim.RDA")
+
+pop <- readRDS("data/nc_data_w_geom.RDS")
+
+tmp.df = errs_all_sims %>%
+  group_by(model, area) %>%
+  reframe(mse=mean(err^2))
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+tmp.df = tmp.df %>% pivot_wider(names_from = model, values_from = mse) %>%
+  pivot_longer(cols=!c(New, area), names_to = "model", values_to = "mse") %>%
+  rename(SSD=New)
+
+df3 <- tmp.df %>% mutate(mse_diff=mse-SSD) %>% 
+  select(-SSD, -mse) %>% 
+  pivot_wider(names_from = model, values_from = mse_diff) %>% 
+  pivot_longer(cols=!area, names_to = "model", values_to = "mse_reduction")
+
+mse_pltDf = pop %>%
+  left_join(ref_table, by = join_by(GEOID)) %>%
+  left_join(df3, by = join_by(area))
+```
+
+
+
+
+
+## Spatial Distribution of MSE Decreases/Increases Relative to SSD Model 
+
+
+```{r message=FALSE, fig.height=2.5, fig.width=4}
+library(latex2exp)
+tmp.df = data.frame(area=1:nrow(all_data),
+                    SE = all_data$rentBurdenSE) 
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+plt_df = pop %>%
+  left_join(ref_table, by = join_by(GEOID)) %>%
+  left_join(tmp.df, by = join_by(area)) %>%
+    arrange(area)
+
+plt_df = plt_df %>%
+  pivot_longer(cols=SE, names_to="model", values_to = "d_i")
+
+
+plt2 = plt_df %>%
+  # mutate(model = factor(model, levels=c("FH", "DM", "BYM", "New"))) %>%
+  filter(model!="Diff") %>% 
+  ggplot(aes(fill = log(d_i))) +
+  geom_sf() +
+  # scale_fill_viridis_b(direction=-1) +
+  scale_fill_distiller(palette = "PiYG") +
+  labs(title = TeX("Log Design SE"),
+       fill = TeX("$log(\\sqrt{d_i})$"))  +
+  theme_void(base_size = 11)  +
+  theme(plot.title = element_text(size = rel(0.8)),
+        legend.position = "left",
+              legend.title = element_text(size = 8), 
+              legend.text  = element_text(size = 8),
+              legend.key.width =  unit(0.6, "lines"))
+
+plt2
+```
+
+
+
+```{r fig.width=8, fig.height=5}
+df4 = df3 %>% group_by(model) %>% 
+  mutate(rank=rank(mse_reduction)) %>% 
+  mutate(rank=ifelse(rank>95, "Top 5", ifelse(rank<=5, "Bottom 5", NA)))
+  
+
+mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>% 
+  left_join(df4, by = join_by(area))
+
+mse_pltDf %>% 
+  ggplot(aes(fill = rank)) +
+  geom_sf() +
+  theme_void() + facet_wrap(~model, nrow=2) +
+  labs(title = "Locations of Top / Bottom 5 MSE Reduction Counties Compared to SSD Model",
+       fill = "") 
+```
+
+First is a map of the log design SEs. We can see that the western and eastern counties have the highest design SEs. Intuitively, the top/bottom 5 counties in terms of MSE reductions (relative to the SSD model) are mostly located in these places. 
+
+### Where did SSD Model decreae MSE?
+
+We can see the spatial distribution of MSE *reduction* relative to SSD Model below. The *lighter* the color, the higher the MSE reduction is and vice versa. 
+
+Note on log MSE reductions:
+
+- $-3$ log MSE reduction is approximately $\approx 0.223^2$ on the original scale 
+- $-6$ log MSE reduction is approximately $\approx 0.05^2$ on the original scale 
+- $-9$ log MSE reduction is approximately $\approx 0.01^2$ on the original scale 
+- $-12$ log MSE reduction is approximately $\approx 0.0025^2$ on the original scale 
+
+```{r fig.width=8, fig.height=5}
+mse_pltDf %>% 
+  mutate(mse_reduction = ifelse(mse_reduction > 0, mse_reduction, 0)) %>% 
+  ggplot(aes(fill = log(mse_reduction))) +
+  geom_sf() +
+  scale_fill_viridis_c(direction=+1, option="magma") +
+  labs(title = "MSE Reduction Relative to SSD Model",
+       fill = "log(MSE *reduction*)") +
+  theme_void() + facet_wrap(~model, nrow=2)
+```
+
+We can see that the pattern of the MSE reductions are fairly different, except for the BYM and CAR models which are very similar in nature. 
+
+
+Below are the summary statistics for the square root of the MSE reduction. The mean reduction was $0.012^2$. 
+
+```{r echo=FALSE}
+tmpDf = mse_pltDf %>% 
+  filter(mse_reduction > 0 ) 
+
+summary(sqrt(tmpDf$mse_reduction)) 
+```
+
+
+
+### Where did SSD Model increase MSE?
+
+Below are the summary statistics for the square root of the MSE increases. 
+
+We can also see where MSE *increased* relative to the SSD Model. We can see that the SSD model seems to increase MSE slightly compared to the models in many areas (which is compensated by large reductions in a few areas). Note that $-10$ log MSE reduction is approximately $\approx 0.007^2$ on the original scale 
+
+
+```{r fig.width=8, fig.height=5}
+mse_pltDf %>% 
+  mutate(mse_increase = ifelse(mse_reduction < 0, -mse_reduction, 0)) %>% 
+  ggplot(aes(fill = log(mse_increase) )) +
+  geom_sf() +
+  scale_fill_viridis_c(option="G") +
+  labs(title = "MSE Increase Relative to SSD Model",
+       fill = "log(MSE *increase*)")  +
+  theme_void() + facet_wrap(~model, nrow=2) 
+```
+
+
+Below are the summary statistics for the square root of the MSE increases. The mean increase in MSE was $7.156e-03^2$, much smaller than the decrease in MSE. 
+
+```{r echo=FALSE}
+tmpDf = mse_pltDf %>% 
+  filter(mse_reduction < 0 ) %>% 
+  mutate(mse_increase = -mse_reduction)
+
+summary(sqrt(tmpDf$mse_increase))
+```
+
+
+
+## Summary
+
+- There are areas in the eastern parts of the state where models struggle in terms of accuracy. The SSD performs the best in these areas compared to the other models. 
+- Reductions over the direct estimate are achieved in most counties
+- Reductions over the other model estimates are concentrated in a few counties where high and small area means are adjacent to each other. This is seen in the northeastern/eastern part of the state and some counties along the western edge of the state. 
+
+
+
+
