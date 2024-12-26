@@ -1,0 +1,347 @@
+---
+title: 'Prior Sensitivity for SSD Model: Random Effect Variances'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+#NOTE: This notebook takes a while to run (~5 minutes)
+
+knitr::opts_chunk$set(echo = FALSE)
+library(LaplacesDemon)
+library(BayesLogit) 
+library(Matrix)
+library(latex2exp)
+library(tidyverse)
+```
+
+
+```{r warning=FALSE}
+setwd("~/coding/spike_slab_fh/ssd_paper_code")
+#south atlantic census division
+load("data/data_NC/data.RDA")
+
+#data 
+covs = c("degree", "assistance", "no_car", "povPerc",  
+         "white", "black", "native", "asian", "hispanic")
+X <- model.matrix(~., all_data[, covs, drop=F]) 
+n <- nrow(X); j <- ncol(X) # number of covariates INCLUDES intercept 
+
+#response (with transformation)
+y <- all_data$rentBurden
+d.var <- all_data$rentBurdenSE^2
+y.star <- log(y)
+d.star <- d.var / y^2
+d.scl <- d.star / sd(y.star)^2
+```
+
+
+```{r include=F}
+hist(sqrt(d.scl), main="Log Design Standard Errors (Scaled)", xlab ="SE")
+```
+
+```{r include=F}
+summary(sqrt(d.scl))
+```
+
+## Introduction
+
+For the proposed Spatially Selected and Dependent (SSD) model, the data model is $[\boldsymbol{y} | \boldsymbol{\theta} ] \sim N_n(\boldsymbol{\theta}, \boldsymbol{D})$ where $\boldsymbol{y}$ are the direct estimates from the survey and the covariance matrix  $\boldsymbol{D}$ is a diagonal matrix of the design variances. The small area means are modeled with $\boldsymbol{\theta} = \boldsymbol{X}^\top \boldsymbol{\beta} \,  + \boldsymbol{u}$. 
+
+Each of the random effects are modeled as $u_i = \delta_i \cdot (v_{1i} +v_{2i})$ where $[\boldsymbol{v}_1 | \sigma_{1}^2]  \sim N_n(\boldsymbol{0}, \sigma_{1}^2 \, \boldsymbol{I})$ and $[\boldsymbol{v}_2 | \sigma_{2}^2]  \sim N_n(\boldsymbol{0}, \sigma_{2}^2 \, \mathbf{Q}^-)$ where $\mathbf{Q}^-$ is the scaled ICAR precision matrix. The selection indicators are modeled as $[\delta_i|p_i]  \overset{ind}\sim Bernoulli(p_i)$ where $p_i$ are the selection probabilities. We model these selection probabilities via $logit(\boldsymbol{p}) = \boldsymbol{\psi}_1 + \boldsymbol{\psi}_2$ through two logit effects $[\boldsymbol{\psi}_1|s_1^2]  \sim N_n(\boldsymbol{0}, s_{1}^2 \, \boldsymbol{I})$ and $[\boldsymbol{\psi}_2|s_2^2]  \sim N_n(\boldsymbol{0}, s_{2}^2 \, \boldsymbol{Q}^-)$. For the full details of our model, please see the main manuscript. 
+
+The parameters that require priors are the regression coefficients $\boldsymbol{\beta}$ and the two sets of variance parameters $\sigma_1^2, \sigma_2^2$, and  $s_1^2, s_2^2$. We use an inverse-gamma prior for both sets of variance parameters. We set a non-informative proper prior for the regression coefficients: $\boldsymbol{\beta} \sim N_j(\boldsymbol{0}, \ 100^2 \boldsymbol{I})$. The prior choice of $s_1^2, s_2^2$ can affect convergence of the MCMC chains but they have minimal impact on the estimates themselves, especially given that these parameters are far down the model hierarchy.
+
+We have observed that the choice of prior on the **random effect variances** $\sigma_1^2$, $\sigma_2^2$ have the biggest impact on the estimates, as they influence the inclusion probabilities $p_i$. Thus, our prior **sensitivity analysis focuses entirely on these random effect variances**. We first start by discussing a key feature of the inverse-gamma distribution: the gap near the origin. 
+
+
+## The Gap Near the Origin for Different Inverse-Gamma Priors
+
+Let $X$ be an inverse-gamma prior with the density: 
+$$f(x | c, d) = \frac{d^c}{\Gamma(c)} (1/x)^{c+1} \exp(- d / x)$$. We denote this as $X \sim IG(c, d)$. 
+
+For every inverse-gamma distribution, there is threshold value $t$ at which 
+$$P(X < t)= \alpha$$
+for some small probability $\alpha$. For example for $c=1$, $d=1$, and $\alpha=0.001$ the threshold $t$ is $\approx 0.145$
+
+```{r include=FALSE}
+c = 1
+d = 1
+
+# since P(X<t)=P(1/X > 1/t) where 1/X is gamma(c, d)
+threshCDF <- function(t, alpha=0.001){
+  abs((1-pgamma(1/t, c, rate=d))-alpha)
+}
+
+optimize(threshCDF, interval = c(0, 1))$minimum
+```
+
+Thus an $IG(c=1, d=1)$ prior has a `gap' in the density between zero and $0.145$. When considering inverse-gamma priors for the random effects variance parameter models like the Datta-Mandal or the SSD model, this gap is important for to make sure that the "spike" and "slab" are distinguishable. Below are the density plots different inverse-gamma priors we compare in this analysis. Each plot is zoomed in to illustrate the difference in the gap near the origin. 
+
+```{r fig.height=10, fig.width=6.5}
+par(mfrow=c(5, 2), mar=c(4, 3, 2, 3))
+
+c=0.5; d=0.5
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000, 
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"), 
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+# 
+# curve(dinvgamma(x, c, d), from=0, to=0.5, n=1000, 
+#       ylab="density", main="", 
+#       xlab=TeX("$\\sigma^2$"), col="blue")
+# abline(h=0, lty=2)
+
+
+c=0.5; d=1
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000, 
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"), 
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=1; d=1
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+
+c=1; d=2
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000, 
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"), 
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=3; d=3
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+
+c=3; d=6
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=5; d=5
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=5; d=10
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=7; d=7
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+
+c=7; d=14
+curve(dinvgamma(x, c, d), from=0, to=1, n=1000,
+      ylab="density", main=paste0("IG(c=", c, " d=", d, ")"),
+      xlab=TeX("$\\sigma^2$"), col="blue", cex.main=1)
+abline(h=0, lty=2)
+```
+
+For the SSD model, we would like a prior that is non-informative but leaves enough space around the origin. Setting the inverse-gamma hyperparameters $IG(c, d)$ smaller results in a non-informative prior. However, doing so results in a very small threshold and not enough gap near the origin. So what threshold is optimal to balance these two factors? In our experience, we found what makes a suitable prior is dependent on the scale of the data. This is why we recommend scaling $(y_i - \bar{y}) / s_{\boldsymbol{y}}$ where $\bar{y}, s_{\boldsymbol{y}}$ is the sample mean and standard deviation of the direct estimates to aid prior specification. Below are the different $t$ values at $\alpha=0.001$ for different inverse-gamma priors. A larger value of  $t$ indicates more gap near the origin. 
+
+```{r }
+find_t = function(k){
+  c=hyp_choices$shp[k]
+  d=hyp_choices$scl[k]
+  # since P(X<t)=P(1/X > 1/u) where 1/X is gamma(a, b)
+  threshCDF <- function(t, alpha=0.001){
+    abs((1-pgamma(1/t, c, rate=d))-alpha)
+  }
+  
+  optimize(threshCDF, interval = c(0, 1))$minimum
+}
+
+# load prior choices
+C = c(0.5, 1, 3, 5, 7)
+hyp_choices = data.frame(shp=rep(C, 2), scl=c(C, 2*C)) %>% arrange(shp)
+num_priors = nrow(hyp_choices)
+
+
+hyp_choices = hyp_choices %>% mutate(t = sapply(1:num_priors, find_t)) %>% arrange(t)
+
+hyp_choices %>% rename(`c (shape)`=shp, `d (scale)`=scl, `t : P(X<t)=0.001`=t) %>% knitr::kable()
+```
+
+
+## Impact on Shrinkage
+
+```{r warning=F, message=FALSE}
+# load sampler 
+setwd("~/coding/spike_slab_fh/ssd_paper_code")
+source("samplers/ssd_fit.R")
+
+set.seed(7)
+# function to iterate over 
+fit_chain <- function(k){
+  # note that the function automatically handles the scaling 
+  chain = ssd_fit(X, y.star, d.star, A, ndesired=2000, nburn=1000, nthin=1, 
+                  hyp=list(c1=hyp_choices$shp[k], d1=hyp_choices$scl[k], 
+                           c2=hyp_choices$shp[k], d2=hyp_choices$scl[k]))
+  return(chain)
+}
+
+# fit chains in parallel
+library(parallel); library(doParallel)
+options(mc.cores = 4)
+cl <- parallel::makeForkCluster(4, setup_strategy = "sequential")
+doParallel::registerDoParallel(cl)
+
+list_of_chains = parLapply(cl, 1:num_priors, fit_chain)
+stopCluster(cl)
+# done! 
+```
+
+The **selection probabilities** $p_i$ are key parameters to assess *shrinkage* in the random effects; it tells us the probability that a random effect is needed in area $i$. To get a sense of the overall level of shrinkage, we examine the average selection probability $\bar{p}$ across all areas. Below is a table of the different $t$ and average *posterior* average selection probabilities resulting from the $IG(c, d)$ priors for the rent burden dataset in North Carolina (used for the paper).  We can see that higher $t$ leads to lower selection probabilities (and higher shrinkage).
+
+```{r }
+avg_sel_prob = sapply(1:num_priors, function(i){ list_of_chains[[i]]$p.delta %>% colMeans() %>% mean()})
+
+hyp_choices %>% rename(`c (shape)`=shp, `d (scale)`=scl, `t : P(X<t)=0.001`=t) %>% mutate(`Avg Selection Probability` = avg_sel_prob )  %>% knitr::kable()
+```
+
+Here we show the $t$ values plotted against the average *posterior* selection probabilities. We can see that there is larger values of $t$ lead to more random effects being reduced to zero (lower selection probability). 
+
+```{r message=FALSE,  fig.height=3, fig.width=5}
+hyp_choices %>% mutate(avg_selection_prob = avg_sel_prob ) %>% 
+  ggplot(aes(x=t, y=avg_selection_prob)) + geom_point() + 
+  geom_line(linewidth=0.5, lty=2)  + 
+  xlab("t (for different priors)") + 
+  ylab("Avg. Posterior Selection Probability")+
+  ggtitle("Variability of Shrinkage for IG Priors - NC Data")+
+  geom_vline(xintercept = 0.3, lty=3, color="blue")
+```
+
+Note that the drop in average selection probability is quite large for  $t< 0.3$ but there is an inflection point near $0.3$. Thus we recommend any Inverse-Gamma prior with $t>0.3$ with $\alpha=0.001$. 
+  
+## Impact on Estimates 
+
+Here we show the variability of the point estimates for Inverse-Gamma priors with $t>0.3$. 
+
+```{r fig.height=10, fig.width=6}
+estim = sapply(5:num_priors, 
+               function(i){ 
+  theta.orig.scl = exp(list_of_chains[[i]]$theta*list_of_chains[[i]]$scale + list_of_chains[[i]]$center)
+  # point estimates
+  theta.orig.scl %>%  colMeans()})
+
+estim %>% t() %>% as.data.frame() %>% 
+  pivot_longer(cols = starts_with("theta"), names_to = "area") %>%
+  mutate(area = str_remove(area, "theta_") %>% factor(levels=as.character(1:100))) %>% 
+  ggplot(aes(x=area, y=value)) + geom_boxplot() + 
+  coord_flip() + 
+  geom_vline(xintercept = c(94, 72), lty=2, linewidth=0.1) + 
+  ggtitle("Variability of Point Estimates for IG Priors (t>0.3) - NC Data") 
+  
+```
+
+We can see that the prior choice has minimal impact outside of a few areas. There are two areas with some variability (areas 72, 94).  These correspond to estimates for Perquimans and Washington counties that have the highest design variance. Thus the prior choice has a significant impact on the estimates for these counties. Note that this is not a problem for all datasets, as seen in the next example.
+
+
+## Repeat with different data (Illinois)
+
+We repeat this exercise again with Illinois $n=102$ and estimating poverty rates. 
+
+```{r warning=FALSE}
+setwd("~/coding/spike_slab_fh/ssd_paper_code")
+#south atlantic census division
+load("data/data_NC/data.RDA")
+
+#data 
+covs = c("degree", "assistance")
+X <- model.matrix(~., all_data[, covs, drop=F]) 
+n <- nrow(X); j <- ncol(X) # number of covariates INCLUDES intercept 
+
+#response (with transformation)
+y <- all_data$povPerc
+d.var <- all_data$povPercSE^2
+y.star <- log(y)
+d.star <- d.var / y^2
+
+# load sampler 
+setwd("~/coding/spike_slab_fh/ssd_paper_code")
+source("samplers/ssd_fit.R")
+
+# function to iterate over 
+fit_chain <- function(k){
+  # note that the function automatically handles the scaling 
+  chain = ssd_fit(X, y.star, d.star, A, ndesired=2000, nburn=1000, nthin=1, 
+                  hyp=list(c1=hyp_choices$shp[k], d1=hyp_choices$scl[k], 
+                           c2=hyp_choices$shp[k], d2=hyp_choices$scl[k]))
+  return(chain)
+}
+
+set.seed(7)
+# fit chains in parallel
+library(parallel); library(doParallel)
+options(mc.cores = 4)
+cl <- parallel::makeForkCluster(4, setup_strategy = "sequential")
+doParallel::registerDoParallel(cl)
+
+list_of_chains = parLapply(cl, 1:num_priors, fit_chain)
+stopCluster(cl)
+# done! 
+
+# calculate average selection prob. 
+avg_sel_prob = sapply(1:num_priors, function(i){ list_of_chains[[i]]$p.delta %>% colMeans() %>% mean()})
+```
+
+Here is a table of the different $t$ and average *posterior* selection probabilities resulting from the $IG(c, d)$ priors for another dataset from Illinois, where we estimate poverty rates. 
+
+```{r}
+hyp_choices %>% rename(`c (shape)`=shp, `d (scale)`=scl, `t : P(X<t)=0.001`=t) %>% 
+  mutate(`Avg Selection Probability` = avg_sel_prob ) %>% knitr::kable()
+```
+
+Here we show the $t$ values plotted against the average *posterior* selection probabilities. Note that priors with smaller values of $t$ result in very little to no shrinkage (almost all random effects are included). Again, we see that selection probabilities generally decrease as $t$ increases. Finally we observe that priors with $t>0.3$ again results in a smaller range of *posterior* selection probabilities.
+
+```{r fig.height=3, fig.width=5, message=F}
+hyp_choices %>% mutate(avg_selection_prob = avg_sel_prob ) %>% ggplot(aes(x=t, y=avg_selection_prob)) + geom_point() + 
+  geom_line(linewidth=0.5, lty=2) + xlab("t (for different priors)") + ylab("Avg. Posterior Selection Probability")+ 
+  ggtitle("Variability of Shrinkage for IG Priors - IL Data")+
+  geom_vline(xintercept = 0.3, lty=3, color="blue")
+```
+
+Here we show the variability of the point estimates for Inverse-Gamma priors with $t>0.3$. 
+
+```{r fig.height=10, fig.width=6}
+estim = sapply(5:num_priors, 
+               function(i){ 
+  theta.orig.scl = exp(list_of_chains[[i]]$theta*list_of_chains[[i]]$scale + list_of_chains[[i]]$center)
+  # point estimates
+  theta.orig.scl %>%  colMeans()})
+estim %>% t() %>% as.data.frame() %>% 
+  pivot_longer(cols = starts_with("theta"), names_to = "area") %>%
+  mutate(area = str_remove(area, "theta_") %>% factor(levels=as.character(1:102))) %>% 
+  ggplot(aes(x=area, y=value)) + geom_boxplot() + coord_flip() + 
+  ggtitle("Variability of Point Estimates for IG Priors (t>0.3) - IL Data")
+```
+
+We can see that for inverse-gamma priors with $t>0.3$, the estimates are barely different from one another for all areas. For this dataset, the prior choice has minimal impact on the estimates for inverse-gamma priors with $t>0.3$. 
+
+
+## Conclusion & Recommendation 
+
+We conducted a prior sensitivity analysis for the random effect variance parameters for the SSD model. The prior choice of these parameters can influence the level of shrinkage and the value of estimates, especially in areas with high design variance. 
+
+We discussed that there for every inverse-gamma distribution, there is value $t$ at which $P(X < t)= \alpha$ for some small probability $\alpha$. We showed the differing values for $t$ at $\alpha=0.001$ for different inverse-gamma priors. To aid prior specification, we recommended that the data be scaled $(y_i - \bar{y} ) / s_{\boldsymbol{y}}$ where $\bar{y}, s_{\boldsymbol{y}}$ is the sample mean and sample standard deviation respectively. 
+
+We tested the model on two different datasets. We saw that choosing an inverse-gamma prior with $t$ value that is too small may force the random effects for most areas to be selected. On the other hand, having $t$ that is very large can force higher shrinkage and lower selection probabilities. We recommend choosing a inverse-gamma prior with $t>0.3$ for $\alpha=0.001$ that balances both of these factors. For the work done for our main manuscript, we chose the prior $IG(5, 5)$ where $t\approx 0.34$. 
+
+
+
+
