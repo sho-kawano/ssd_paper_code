@@ -1,0 +1,225 @@
+starting worker pid=29419 on localhost:11386 at 22:57:43.642
+starting worker pid=29420 on localhost:11386 at 22:57:43.656
+starting worker pid=29421 on localhost:11386 at 22:57:43.663
+starting worker pid=29422 on localhost:11386 at 22:57:43.671
+starting worker pid=29423 on localhost:11386 at 22:57:43.678
+[1] "FH done for 4"
+[1] "FH done for 2"
+[1] "FH done for 3"
+[1] "FH done for 1"
+[1] "FH done for 5"
+[1] "DM done for 4"
+[1] "DM done for 3"
+[1] "DM done for 2"
+[1] "DM done for 1"
+[1] "DM done for 5"
+[1] "CAR done for 4"
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)
+[1] "CAR done for 5"
+[1] "CAR done for 1"
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)
+[1] "CAR done for 2"
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)
+[1] "CAR done for 3"
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)
+[1] "BYM done for 2"
+[1] "BYM done for 1"
+[1] "BYM done for 5"
+[1] "BYM done for 4"
+[1] "BYM done for 3"
+[1] "SSD done for 3"
+[1] "SSD done for 5"
+[1] "________________________________________________"
+[1] "Simulation 3 is finished."
+[1] "2024-09-04 01:39:53 PDT"
+[1] "________________________________________________"
+[1] "________________________________________________"
+[1] "Simulation 5 is finished."
+[1] "2024-09-04 01:39:55 PDT"
+[1] "________________________________________________"
+[1] "FH done for 6"
+[1] "SSD done for 4"
+[1] "FH done for 7"
+[1] "________________________________________________"
+[1] "Simulation 4 is finished."
+[1] "2024-09-04 01:40:19 PDT"
+[1] "________________________________________________"
+[1] "FH done for 8"
+[1] "DM done for 6"
+[1] "DM done for 7"
+[1] "SSD done for 1"
+[1] "________________________________________________"
+[1] "Simulation 1 is finished."
+[1] "2024-09-04 01:40:54 PDT"
+[1] "________________________________________________"
+[1] "DM done for 8"
+[1] "FH done for 9"
+[1] "SSD done for 2"
+[1] "________________________________________________"
+[1] "Simulation 2 is finished."
+[1] "2024-09-04 01:41:29 PDT"
+[1] "________________________________________________"
+[1] "DM done for 9"
+[1] "FH done for 10"
+[1] "DM done for 10"
+[1] "CAR done for 7"
+[1] "CAR done for 6"
+[1] "CAR done for 8"
+[1] "CAR done for 9"
+[1] "CAR done for 10"
+[1] "BYM done for 6"
+[1] "BYM done for 7"
+[1] "BYM done for 8"
+[1] "BYM done for 9"
+[1] "BYM done for 10"
+[1] "SSD done for 7"
+[1] "________________________________________________"
+[1] "Simulation 7 is finished."
+[1] "2024-09-04 04:13:53 PDT"
+[1] "________________________________________________"
+[1] "FH done for 11"
+[1] "DM done for 11"
+[1] "SSD done for 8"
+[1] "________________________________________________"
+[1] "Simulation 8 is finished."
+[1] "2024-09-04 04:15:23 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 10"
+[1] "FH done for 12"
+[1] "SSD done for 6"
+[1] "________________________________________________"
+[1] "Simulation 10 is finished."
+[1] "2024-09-04 04:15:46 PDT"
+[1] "________________________________________________"
+[1] "________________________________________________"
+[1] "Simulation 6 is finished."
+[1] "2024-09-04 04:15:49 PDT"
+[1] "________________________________________________"
+[1] "FH done for 13"
+[1] "FH done for 14"
+[1] "DM done for 12"
+[1] "DM done for 13"
+[1] "DM done for 14"
+[1] "SSD done for 9"
+[1] "________________________________________________"
+[1] "Simulation 9 is finished."
+[1] "2024-09-04 04:17:34 PDT"
+[1] "________________________________________________"
+[1] "FH done for 15"
+[1] "DM done for 15"
+[1] "CAR done for 11"
+[1] "CAR done for 13"
+[1] "CAR done for 12"
+[1] "CAR done for 14"
+[1] "CAR done for 15"
+[1] "BYM done for 11"
+[1] "BYM done for 13"
+[1] "BYM done for 12"
+[1] "BYM done for 14"
+[1] "BYM done for 15"
+[1] "SSD done for 13"
+[1] "________________________________________________"
+[1] "Simulation 13 is finished."
+[1] "2024-09-04 06:47:42 PDT"
+[1] "________________________________________________"
+[1] "FH done for 16"
+[1] "DM done for 16"
+[1] "SSD done for 11"
+[1] "________________________________________________"
+[1] "Simulation 11 is finished."
+[1] "2024-09-04 06:48:54 PDT"
+[1] "________________________________________________"
+[1] "FH done for 17"
+[1] "SSD done for 14"
+[1] "DM done for 17"
+[1] "________________________________________________"
+[1] "Simulation 14 is finished."
+[1] "2024-09-04 06:49:45 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 12"
+[1] "________________________________________________"
+[1] "Simulation 12 is finished."
+[1] "2024-09-04 06:50:01 PDT"
+[1] "________________________________________________"
+[1] "FH done for 18"
+[1] "FH done for 19"
+[1] "DM done for 18"
+[1] "DM done for 19"
+[1] "SSD done for 15"
+[1] "________________________________________________"
+[1] "Simulation 15 is finished."
+[1] "2024-09-04 06:53:16 PDT"
+[1] "________________________________________________"
+[1] "FH done for 20"
+[1] "DM done for 20"
+[1] "CAR done for 16"
+[1] "CAR done for 17"
+[1] "CAR done for 18"
+[1] "CAR done for 19"
+[1] "CAR done for 20"
+[1] "BYM done for 16"
+[1] "BYM done for 17"
+[1] "BYM done for 18"
+[1] "BYM done for 19"
+[1] "BYM done for 20"
+[1] "SSD done for 16"
+[1] "________________________________________________"
+[1] "Simulation 16 is finished."
+[1] "2024-09-04 09:23:55 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 17"
+[1] "________________________________________________"
+[1] "Simulation 17 is finished."
+[1] "2024-09-04 09:25:35 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 19"
+[1] "________________________________________________"
+[1] "Simulation 19 is finished."
+[1] "2024-09-04 09:25:52 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 18"
+[1] "________________________________________________"
+[1] "Simulation 18 is finished."
+[1] "2024-09-04 09:27:50 PDT"
+[1] "________________________________________________"
+[1] "SSD done for 20"
+[1] "________________________________________________"
+[1] "Simulation 20 is finished."
+[1] "2024-09-04 09:30:15 PDT"
+[1] "________________________________________________"
