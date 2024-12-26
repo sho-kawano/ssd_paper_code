@@ -1,0 +1,342 @@
+---
+title: "Table + Plots For Publication"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = F, warning = F, message=F)
+library(usmap)
+library(tidyverse)
+library(tidycensus)
+library(patchwork)
+```
+
+
+## Figure 1 
+
+```{r  include=FALSE}
+load("data/data_NC/data.RDA")
+
+# the response 
+covs = c("degree", "assistance", "no_car", "povPerc",  
+         "white", "black", "native", "asian", "hispanic")
+X <- model.matrix(~., all_data[, covs, drop=F]) 
+
+y <- all_data$rentBurden
+D <- all_data$rentBurdenSE^2
+y.star <- log(y)
+D.star <- D / y^2
+
+center <- mean(y.star)
+scale <- sd(y.star)
+y.scaled <- (y.star-center)/scale
+D.scaled <- D.star/scale^2
+
+# ---- Load Map -----
+pop <- readRDS("data/nc_data_w_geom.RDS")
+```
+
+```{r}
+library(latex2exp)
+tmp.df = data.frame(area=1:nrow(all_data),
+                    D.Est = all_data$rentBurden) 
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+plt_df = pop %>%
+  left_join(ref_table) %>%
+  left_join(tmp.df) %>%
+    arrange(area)
+
+plt_df = plt_df %>%
+  pivot_longer(cols=D.Est, names_to="model", values_to = "theta")
+
+
+plt1 = plt_df %>%
+  # mutate(model = factor(model, levels=c("FH", "DM", "BYM", "New"))) %>%
+  filter(model!="Diff") %>% 
+  ggplot(aes(fill = theta)) +
+  geom_sf() +
+  # scale_fill_viridis_b(direction=-1) +
+  scale_fill_distiller(palette = "RdYlBu") +
+  labs(title = TeX("(a): The 'True' Small Area Means: $z_i$"),
+       fill = TeX("$z_i$"))  +
+  theme_void(base_size = 11) + facet_wrap(~model, nrow=2) +
+  theme(plot.title = element_text(size = rel(0.8)),
+        legend.position = "left",
+              legend.title = element_text(size = 8), 
+              legend.text  = element_text(size = 8),
+              legend.key.width =  unit(0.6, "lines"))
+
+
+plt2 <- all_data %>% 
+  ggplot(aes(y=rentBurden, x=rentBurdenSE )) + 
+  # geom_errorbar(width=0.1, alpha=0.6,  show.legend = F) + 
+  geom_point( show.legend = F, alpha=0.7, color="navy")+
+  theme_bw(base_size = 11) + 
+  theme(plot.title = element_text(size = rel(0.8)))+
+    labs(title = TeX("(b): Design Standard Errors vs.'True' Small Area Means"))  +
+  xlab(TeX("$\\sqrt{d_i}$"))+ ylab(TeX("Median Rent Burden, $z_i$"))
+
+```
+
+Note: color removed for revision from scatterplot
+
+```{r}
+plt1+plt2 + plot_layout(ncol = 2, widths = 1, heights = c(1, 0.4))
+ggsave("figs/figure0.png", dpi=600, dev='png', height=4, width=7.05, units="in")
+```
+
+
+
+
+## Table 1: Simulation Summary
+
+```{r inputs}
+load("data/data_NC/data.RDA")
+
+y <- all_data$rentBurden
+D <- all_data$rentBurdenSE^2
+
+y.star <- log(y)
+D.star <- D / y^2
+
+n <- nrow(all_data)
+reference.df = data.frame(area=1:n, truth=y)
+
+source("sim_analysis_functions/calc_results.R")
+```
+
+
+```{r}
+load("sim_results_NC/results_by_sim.RDA")
+
+# Calculating TMSE Across Models & Simulation
+mse_df <- errs_all_sims %>% group_by(sim, model) %>% summarise(mse=mean(err^2)) %>% 
+  ungroup() %>% group_by(model) %>% summarise(avg_mse=mean(mse) %>% round(5)) %>% 
+  arrange(desc(avg_mse)) %>% ungroup() 
+
+covRate_df <- ci_all_sims %>% group_by(sim, model) %>%
+   reframe(cove_rate=sum(covered)/nrow(all_data)) %>%
+  ungroup() %>%
+  group_by(model) %>% 
+  reframe(avg_cov_rate=mean(cove_rate) %>% round(3)) %>%
+  arrange(desc(avg_cov_rate))
+
+intScore_df <- ci_all_sims %>% group_by(sim, model) %>%
+  reframe(int_score = (upr-lwr) + (2/0.1)*(lwr-truth)*(truth<lwr) +
+              (2/0.1)*(truth-upr)*(truth>upr), covered=covered) %>%
+  group_by(model) %>% reframe(avg_int_score =mean(int_score) %>% round(4)) %>%
+  arrange(desc(avg_int_score))
+
+bias_df <- postMean_all_sims %>% group_by(area, model) %>%
+  reframe(theta.hat=mean(post.mean)) %>%
+  left_join(reference.df, by="area") %>%
+  mutate(bias=abs(theta.hat-truth)) %>%
+  group_by(model) %>%
+  reframe(avg_bias = mean(bias) %>% round(4)) %>%
+  arrange(desc(avg_bias))
+
+mse_df %>% left_join(covRate_df) %>% left_join(intScore_df) %>% left_join(bias_df)
+```
+
+## Fig 2: MSE comparison across methods 
+
+```{r fig.dim=c(5, 4)}
+library(latex2exp)
+
+plt1 <- errs_all_sims %>% group_by(sim, model) %>% 
+  reframe(mse=mean(err^2)) %>% 
+  pivot_wider(names_from = model, values_from = mse) %>% 
+  pivot_longer(cols=!sim & !New) %>% 
+  mutate(value =  log(value), New = log(New)) %>% 
+  mutate(positive=ifelse(value>New, "T", "F")) %>% 
+  rename(l_mse = value, l_mse_new=New, model=name) %>% 
+  ggplot(aes(x=l_mse_new, y=l_mse)) + 
+  geom_point(alpha=0.5, aes(color=positive), show.legend = F) + geom_abline(slope=1, lty=2)+
+  theme_bw(base_size = 11)  + facet_wrap(~model) +
+  xlab(TeX("$log(MSE_{SSD})$")) + ylab(TeX("$log(MSE_{other})$")) + 
+  xlim(c(-8.3, -5.4)) + ylim(c(-8.3, -4.4))
+
+#ggsave("figs/figure1.png", dpi=600, dev='png', height=4.5, width=6.5, units="in")
+```
+
+
+# Data Analysis Figures
+
+## Fig. 3: Estimates & SEs Plots
+
+```{r include=FALSE}
+options(scipen=20)
+
+# ---- Packages ---- 
+library(bayesplot)
+library(tidycensus)
+library(spdep)
+library(patchwork)
+library(tidyverse)
+
+# ---- Data ---- 
+load("data/data_multi-state/data.RDA")
+
+all_data <- all_data %>% 
+  mutate(high_rentBurden = ifelse(rentBurden>0.4, T, F)) 
+
+# the response 
+covs = c("degree", "assistance", "no_car", "povPerc",  
+         "white", "black", "native", "asian", "hispanic")
+X <- model.matrix(~., all_data[, covs, drop=F]) 
+
+y <- all_data$rentBurden
+D <- all_data$rentBurdenSE^2
+y.star <- log(y)
+D.star <- D / y^2
+
+center <- mean(y.star)
+scale <- sd(y.star)
+y.scaled <- (y.star-center)/scale
+D.scaled <- D.star/scale^2
+
+# ---- Load Chains ---- 
+load("data_analysis_chains/bym_res2.RDA")
+load("data_analysis_chains/dm_res2.RDA")
+load("data_analysis_chains/fh_res2.RDA")
+load("data_analysis_chains/new_res2.RDA")
+
+# ---- Load Map -----
+pop <- readRDS("data/sa_data_w_geom.RDS")
+```
+
+
+```{r}
+tmp.df = data.frame(area=1:nrow(all_data),
+                    D.Est = all_data$rentBurden,
+                    SSD=exp(scale*new_res$theta+center) %>% colMeans()) %>% 
+  mutate(Diff=D.Est-SSD)
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+plt_df = pop %>%
+  left_join(ref_table) %>%
+  left_join(tmp.df) %>%
+  arrange(area)
+
+plt_df = plt_df %>%
+  pivot_longer(cols=D.Est:Diff, names_to="model", values_to = "theta")
+
+
+plt1 = plt_df %>%
+  # mutate(model = factor(model, levels=c("FH", "DM", "BYM", "New"))) %>%
+  # filter(model=="New") %>% 
+  filter(model!="Diff") %>% 
+  ggplot(aes(fill = theta)) +
+  geom_sf() +
+  # scale_fill_viridis_b(direction=-1) +
+  scale_fill_distiller(palette = "RdYlBu") +
+  labs(#title = "Direct Estimates v.s. Estimates from New Model",
+       #caption = "Based on 2015-2019 5-year ACS Data. Posterior Mean was used for new model.",
+       fill = "Estimates")  +
+  theme_void() + 
+  facet_wrap(~model, nrow=1) +
+  theme(legend.title = element_text(size = 8), 
+        legend.text  = element_text(size = 8),
+        legend.key.width =  unit(0.7, "lines"))
+
+plt1 
+```
+
+
+```{r}
+tmp.df =  data.frame(area=1:nrow(all_data),
+                     D.Est = all_data$rentBurdenSE %>% log(),
+                     SSD=exp(scale*new_res$theta+center) %>% 
+                       apply(2, function(x){( (nrow(all_data)-1) / nrow(all_data))*sd(x)}) %>% log()) 
+#                                 ^^^ standard deviation (not sample standard deviation)
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+plt_df = pop %>%
+  left_join(ref_table) %>%
+  left_join(tmp.df) %>%
+  arrange(area)
+
+plt_df = plt_df %>%
+  pivot_longer(cols=D.Est:SSD, names_to="model", values_to = "theta")
+
+
+plt2 = plt_df %>%
+  mutate(model = factor(model, levels=c("D.Est", "SSD"))) %>%
+  ggplot(aes(fill = theta)) +
+  geom_sf() +
+  #scale_fill_viridis_c(direction=1) +
+  # scale_fill_distiller(palette = "BrGg") +
+  scale_fill_viridis_c() +
+  labs(#title = "Comparing Log SE's: Direct Estimate & New Model",
+       #caption = "2015-2019 5-year ACS Data",
+       fill = "Log SE's")  +
+  theme_void() + facet_wrap(~model, nrow=1) +
+  theme(legend.title = element_text(size = 8), 
+        legend.text  = element_text(size = 8),
+        legend.key.width =  unit(0.7, "lines"))
+
+plt2
+```
+
+
+```{r}
+#ggsave("figs/figure2.png", ggpubr::ggarrange(plt1, plt2, nrow=2), dpi=600, dev='png', height=7, width=8, units="in") 
+```
+
+
+## Geary's C p-value (Monte-Carlo) - Referenced in Data Analysis Section
+
+Testing spatial correlation of random effects 
+```{r}
+dm_reffects = (dm_res$v*dm_res$delta) %>% colMeans()
+test_dm=geary.mc(dm_reffects, mat2listw(A, style="W"), nsim=1000, zero.policy = F)
+test_dm$p.value
+```
+
+
+
+## Fig 4: Inclusion Probability Plot
+
+
+```{r}
+load("data/data_multi-state/data.RDA")
+tmp.df = data.frame(area=1:nrow(all_data), 
+                    SSD = new_res$p.delta %>% colMeans(), 
+                    DM = dm_res$p.delta %>% colMeans()) %>% 
+  pivot_longer(cols=DM:SSD, names_to="model", values_to = "p.delta")
+
+iprob_df = pop %>% 
+  left_join(ref_table) %>% 
+  left_join(tmp.df)
+
+plt4 <- iprob_df  %>% 
+  ggplot(aes(fill = p.delta )) + 
+  geom_sf() + 
+  # scale_fill_viridis_b() +
+  scale_fill_distiller(palette = "RdPu",
+                       direction = 1) +
+  labs(title = "",
+       fill = TeX("$\\hat{p}$"),
+       caption="Posterior Means are shown")  +
+  theme_void() + 
+  facet_wrap(~model, nrow=1)
+
+plt4
+```
+
+
+```{r}
+#ggsave("figs/figure3.png", plt4, dpi=600, dev='png', height=7, width=8, units="in") 
+```
+
+
+
+
+
+
