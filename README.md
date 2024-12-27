@@ -6,7 +6,7 @@ This is the code that can reproduce the results in the paper:
 *Partial results only:* Due to file sizes, full results are not stored here.
 
 * The repo does not have the full simulation study results, only 4 simulations are included for North Carolina. However, the summary file  `sim_results_NC/results_by_sim.RDA` contain results for full study with 300 simulations.  
-* The repo does not have the full MCMC chains saved. Only small chains with 25 iterations are included for testing.
+* The code required to reproduce reports 
 * There are other files used for supplementary materials 
 
 ***
@@ -23,6 +23,17 @@ This is the code that can reproduce the results in the paper:
 * `samplers/` include the MCMC samplers for all models used
 * `data/` includes all data used.
 * `sim_analysis_functions/` functions used to download data, set up & run simulations, and process results are included here
-*  `sim_results_NC/` stores results for the simulation study
+*  `sim_results_NC/` stores results for the North Carolina simulation study
 * `data_analysis/` stores MCMC chains for the data analysis
 * `figs/` png copies of the figures in the paper
+
+
+***
+
+**Supplemental**
+
+* `suppl_*.Rmd` all of these notebooks were used to create reports included as supplemental material
+* `suppl_reports/` folder storing pdf copies of the supplemental reports 
+* `sa_simulation.R` can be used to run a simulation study with the south atlantic census division. This will be time & memory intensive
+* `sim_results_SA/` stores results for the S.Atlantic Simulation study
+
