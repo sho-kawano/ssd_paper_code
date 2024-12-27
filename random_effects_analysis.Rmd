@@ -60,7 +60,7 @@ pop <- readRDS("data/sa_data_w_geom.RDS")
 
 
 
-## SSD Model: Selection Probabilities vs Random Effects
+## SSD Model: Selection Probabilities vs Random Effects (S. Atlantic Census Division)
 
 
 ```{r include=FALSE}
@@ -121,18 +121,8 @@ tmp.df %>% ggplot(aes(x=FH, y=reffects)) +
 
 We can see that the DM model most closely resembles the Fay-Herriot random effects, as they both assume independent and identically distributed (IID) random effects. The SSD model is somewhere between the BYM and the DM model, as expected. Of the models, SSD model allows for the biggest range in the random effect values. 
 
-### Testing for Spatial Dependence 
 
-A Monte-Carlo simulation of a Geary's C test was performed on the random effects for the Fay-Herriot and Datta-Mandal. Here are the p-values:
 
-```{r}
-test_fh=geary.mc(fh_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = F)
-test_fh$p.value
-test_dm=geary.mc(dm_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = F)
-test_dm$p.value
-```
-
-### Map of Random Efffects (Posterior Means)
 
 ```{r }
 tmp.df = data.frame(area=1:nrow(all_data),
@@ -151,42 +141,9 @@ plt_df = plt_df %>%
   pivot_longer(cols=FH:New, names_to="model", values_to = "reffects")
 ```
 
-```{r fig.dim=c(7, 4)}
-plt_df %>%
-  filter(model %in% c("DM", "New")) %>% 
-  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
-  mutate(model = factor(model, levels=c("FH", "DM", "BYM", "SSD"))) %>%
-  ggplot(aes(fill = reffects )) +
-  geom_sf() +
-  # scale_fill_viridis_b(breaks=c(-0.15, -0.01, -0.005, 0.005, 0.01, 0.15)) +
-  # scale_fill_distiller(palette = "BuPu") +
-    scale_fill_distiller(palette = "PuOr", direction = 1) +
-  labs(#title = "Random Effects from Each Model",
-       caption="Comparing Posterior Means",
-       fill = "Random Effects")  +
-  theme_void() + facet_wrap(~model, nrow=1)
-```
 
 
-```{r fig.dim=c(7, 4)}
-plt_df %>%
-  filter(model %in% c("FH", "BYM")) %>% 
-  mutate(model = factor(model, levels=c("FH", "DM", "BYM", "New"))) %>%
-  ggplot(aes(fill = reffects )) +
-  geom_sf() +
-  # scale_fill_viridis_b(breaks=c(-0.15, -0.01, -0.005, 0.005, 0.01, 0.15)) +
-  # scale_fill_distiller(palette = "BuPu") +
-    scale_fill_distiller(palette = "PuOr", direction = 1) +
-  labs(#title = "Random Effects from Each Model",
-       caption="Comparing Posterior Means",
-       fill = "Random Effects")  +
-  theme_void() + facet_wrap(~model, nrow=1)
-```
-
-We can see that all of the models have fairly similar spatial patterns. They also agree on the areas that have larger magnitude random effects. 
-
-
-### Map of Random Effect Differences Between SSD Model and Others
+## Mapping Random Effects from the Different Models
 
 ```{r}
 tmp.df = data.frame(area=1:nrow(all_data),
@@ -211,8 +168,31 @@ pop %>%
   facet_wrap(~Model)
 ```
 
-Here is a comparison of the differences between the SSD random effects and the other models. As expected, difference compared to the IID models (DM & FH) have a strong spatial pattern. The difference between the BYM and the SSD is marked by a few spots of large differences. It is interesting, however, that it does have a spatial pattern down by Florida, which suggests that incorporating spatial selection can capture spatial patterns that the BYM alone cannot. 
+Here is a comparison of the differences between the SSD random effects and the other models. As expected, difference compared to the IID models (DM & FH) have a strong spatial pattern. The difference between the BYM and the SSD is marked by a few spots of large differences. It is interesting, however, that the difference in the random effects between these two models has a spatial pattern down by Florida. 
+
+It seems that the BYM effects in Florida are drawn upwards by the presence of one county with very large effects in south Florida. This can be seen in the maps below. We can see that the models with selection can allow for counties with very large magnitude effects without unnecessarily impacting the surrounding counties that may not need random effects. This can be see in other places in the census division. 
 
 
+```{r fig.dim=c(8, 7)}
+plt_df %>%
+  # filter(model %in% c("DM", "New")) %>% 
+  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
+  mutate(model = factor(model, levels=c("FH", "DM", "BYM", "SSD"))) %>%
+  ggplot(aes(fill = reffects )) +
+  geom_sf() +
+  # scale_fill_viridis_b(breaks=c(-0.15, -0.01, -0.005, 0.005, 0.01, 0.15)) +
+  # scale_fill_distiller(palette = "BuPu") +
+    scale_fill_distiller(palette = "PuOr", direction = 1) +
+  labs(#title = "Random Effects from Each Model",
+       caption="Comparing Posterior Means",
+       fill = "Random Effects")  +
+  theme_void() + facet_wrap(~model, nrow=2)
+```
 
+```{r}
+set.seed(7)
+test_fh=geary.mc(fh_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = F)
+test_dm=geary.mc(dm_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = F)
+```
 
+Overall, we can see that all of the models have fairly similar spatial patterns.  A Monte-Carlo simulation of a Geary's C test was performed on the random effects for the Fay-Herriot and Datta-Mandal. Here are the p-values: `r test_fh$p.value` and `r test_dm$p.value`.
