@@ -19,7 +19,6 @@ library(tidyverse)
 
 
 ```{r warning=FALSE}
-setwd("~/coding/spike_slab_fh/ssd_paper_code")
 #south atlantic census division
 load("data/data_NC/data.RDA")
 
