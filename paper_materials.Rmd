@@ -61,9 +61,9 @@ plt1 = plt_df %>%
   geom_sf() +
   # scale_fill_viridis_b(direction=-1) +
   scale_fill_distiller(palette = "RdYlBu") +
-  labs(title = TeX("(a): The 'True' Small Area Means: $z_i$"),
+  labs(title = TeX("(a): The 'True' Small Area Means $z_i$"),
        fill = TeX("$z_i$"))  +
-  theme_void(base_size = 11) + facet_wrap(~model, nrow=2) +
+  theme_void(base_size = 11) + 
   theme(plot.title = element_text(size = rel(0.8)),
         legend.position = "left",
               legend.title = element_text(size = 8), 
@@ -77,7 +77,7 @@ plt2 <- all_data %>%
   geom_point( show.legend = F, alpha=0.7, color="navy")+
   theme_bw(base_size = 11) + 
   theme(plot.title = element_text(size = rel(0.8)))+
-    labs(title = TeX("(b): Design Standard Errors vs.'True' Small Area Means"))  +
+    labs(title = TeX("(b): Design Standard Errors vs.$z_i$"))  +
   xlab(TeX("$\\sqrt{d_i}$"))+ ylab(TeX("Median Rent Burden, $z_i$"))
 
 ```
@@ -122,7 +122,7 @@ covRate_df <- ci_all_sims %>% group_by(sim, model) %>%
    reframe(cove_rate=sum(covered)/nrow(all_data)) %>%
   ungroup() %>%
   group_by(model) %>% 
-  reframe(avg_cov_rate=mean(cove_rate) %>% round(3)) %>%
+  reframe(avg_cov_rate=mean(cove_rate) %>% round(4)) %>%
   arrange(desc(avg_cov_rate))
 
 intScore_df <- ci_all_sims %>% group_by(sim, model) %>%
@@ -138,8 +138,13 @@ bias_df <- postMean_all_sims %>% group_by(area, model) %>%
   group_by(model) %>%
   reframe(avg_bias = mean(bias) %>% round(4)) %>%
   arrange(desc(avg_bias))
-
-mse_df %>% left_join(covRate_df) %>% left_join(intScore_df) %>% left_join(bias_df)
+options(scipen=0)
+mse_df %>% 
+  left_join(covRate_df, by = join_by(model)) %>% 
+  left_join(intScore_df, by = join_by(model)) %>% 
+  left_join(bias_df, by = join_by(model)) %>% 
+  filter(model!="CAR") %>% 
+  mutate(model=ifelse(model=="New", "SSD", model))
 ```
 
 ## Fig 2: MSE comparison across methods 
@@ -154,13 +159,15 @@ plt1 <- errs_all_sims %>% group_by(sim, model) %>%
   mutate(value =  log(value), New = log(New)) %>% 
   mutate(positive=ifelse(value>New, "T", "F")) %>% 
   rename(l_mse = value, l_mse_new=New, model=name) %>% 
+  filter(model!="CAR") %>% 
   ggplot(aes(x=l_mse_new, y=l_mse)) + 
-  geom_point(alpha=0.5, aes(color=positive), show.legend = F) + geom_abline(slope=1, lty=2)+
+  geom_point(alpha=0.5, size=1, aes(color=positive), show.legend = F) + geom_abline(slope=1, lty=2)+
   theme_bw(base_size = 11)  + facet_wrap(~model) +
   xlab(TeX("$log(MSE_{SSD})$")) + ylab(TeX("$log(MSE_{other})$")) + 
   xlim(c(-8.3, -5.4)) + ylim(c(-8.3, -4.4))
 
-#ggsave("figs/figure1.png", dpi=600, dev='png', height=4.5, width=6.5, units="in")
+plt1 
+ggsave("figs/figure1.png", dpi=600, dev='png', height=4.5, width=6.5, units="in")
 ```
 
 
@@ -200,10 +207,10 @@ y.scaled <- (y.star-center)/scale
 D.scaled <- D.star/scale^2
 
 # ---- Load Chains ---- 
-load("data_analysis_chains/bym_res2.RDA")
-load("data_analysis_chains/dm_res2.RDA")
-load("data_analysis_chains/fh_res2.RDA")
-load("data_analysis_chains/new_res2.RDA")
+load("data_analysis_chains/bym_res.RDA")
+load("data_analysis_chains/dm_res.RDA")
+load("data_analysis_chains/fh_res.RDA")
+load("data_analysis_chains/new_res.RDA")
 
 # ---- Load Map -----
 pop <- readRDS("data/sa_data_w_geom.RDS")
@@ -286,7 +293,7 @@ plt2
 
 
 ```{r}
-#ggsave("figs/figure2.png", ggpubr::ggarrange(plt1, plt2, nrow=2), dpi=600, dev='png', height=7, width=8, units="in") 
+ggsave("figs/figure2.png", ggpubr::ggarrange(plt1, plt2, nrow=2), dpi=600, dev='png', height=7, width=8, units="in") 
 ```
 
 
@@ -332,10 +339,19 @@ plt4
 
 
 ```{r}
-#ggsave("figs/figure3.png", plt4, dpi=600, dev='png', height=7, width=8, units="in") 
+ggsave("figs/figure3.png", plt4, dpi=600, dev='png', height=7, width=8, units="in") 
 ```
 
 
+
+## Appendix: Simulation Study Resulst with CAR model included
+
+```{r}
+mse_df %>% 
+  left_join(covRate_df, by = join_by(model)) %>% 
+  left_join(intScore_df, by = join_by(model)) %>% 
+  left_join(bias_df, by = join_by(model)) 
+```
 
 
 
