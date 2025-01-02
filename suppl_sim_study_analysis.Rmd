@@ -35,6 +35,8 @@ mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>%
   mutate(model=ifelse(model=="New", "SSD", model))
 ```
 
+## MSE from Direct Estimates vs. Models by Area
+
 ```{r fig.width=7, fig.height=5}
 mse_pltDf %>% 
   ggplot(aes(x=log(D.Est), y=log(mse) )) +  
@@ -45,7 +47,7 @@ mse_pltDf %>%
   coord_fixed() +
   xlab("log(MSE) for D.Est") + 
   ylab("log(MSE) for Models") + 
-  ggtitle("MSE from Direct Estimates vs. Models by Area") +
+  ggtitle("") +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
@@ -94,7 +96,7 @@ mse_pltDf %>%
   arrange(desc(Mean)) %>% knitr::kable()
 ```
 
-There are a few areas where using a model increases MSE (enclosed in rectangle). The increase in MSE is *lower* for SSD model than all other models. This is a major factor in why the SSD model outperforms others. This can also be seen from the summary statistics of the MSE **reduction** relative to the direct estimate (on original scale) shown below: $MSE - MSE_{D.Est}$.
+There are a few areas where using a model increases MSE (enclosed in rectangle) relative to the direct estimate. The increase in MSE is *lower* for SSD model than all other models. This is a major factor in why the SSD model outperforms others. This can also be seen from the summary statistics of the MSE **reduction** relative to the direct estimate (on original scale) shown above: $MSE - MSE_{D.Est}$.
 
 
 ```{r include=F}
@@ -132,7 +134,7 @@ mse_pltDf = pop %>%
 ## Spatial Distribution of MSE Decreases/Increases Relative to SSD Model 
 
 
-```{r message=FALSE, fig.height=2.5, fig.width=4}
+```{r message=FALSE, fig.height=2.5, fig.width=8}
 library(latex2exp)
 tmp.df = data.frame(area=1:nrow(all_data),
                     SE = all_data$rentBurdenSE) 
@@ -164,15 +166,50 @@ plt2 = plt_df %>%
               legend.text  = element_text(size = 8),
               legend.key.width =  unit(0.6, "lines"))
 
-plt2
+
+tmp.df = data.frame(area=1:nrow(all_data),
+                    D.Est = all_data$rentBurden) 
+
+ref_table = data.frame(area=1:nrow(all_data), GEOID=all_data$fips)
+
+plt_df = pop %>%
+  left_join(ref_table) %>%
+  left_join(tmp.df) %>%
+    arrange(area)
+
+plt_df = plt_df %>%
+  pivot_longer(cols=D.Est, names_to="model", values_to = "theta")
+
+
+plt1 = plt_df %>%
+  # mutate(model = factor(model, levels=c("FH", "DM", "BYM", "New"))) %>%
+  filter(model!="Diff") %>% 
+  ggplot(aes(fill = theta)) +
+  geom_sf() +
+  # scale_fill_viridis_b(direction=-1) +
+  scale_fill_distiller(palette = "RdYlBu") +
+  labs(title = TeX("'True' Small Area Means"),
+       fill = TeX("$z_i$"))  +
+  theme_void(base_size = 11) + 
+  theme(plot.title = element_text(size = rel(0.8)),
+        legend.position = "left",
+              legend.title = element_text(size = 8), 
+              legend.text  = element_text(size = 8),
+              legend.key.width =  unit(0.6, "lines"))
+
+plt1 + plt2
 ```
 
 
 
+
+
+First is a map of the `true' small area means in this simulation study and the log design SEs. We can see that some counties along the western edge and northeastern corners of the state have the highest/lowest values as well as high design SE's.  Intuitively, the top 5 counties in terms of MSE reductions (relative to the SSD model) are mostly located in these places. 
+
 ```{r fig.width=8, fig.height=5}
 df4 = df3 %>% group_by(model) %>% 
   mutate(rank=rank(mse_reduction)) %>% 
-  mutate(rank=ifelse(rank>95, "Top 5", ifelse(rank<=5, "Bottom 5", NA)))
+  mutate(rank=ifelse(rank>=95, "Top 5", NA))
   
 
 mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>% 
@@ -182,11 +219,10 @@ mse_pltDf %>%
   ggplot(aes(fill = rank)) +
   geom_sf() +
   theme_void() + facet_wrap(~model, nrow=2) +
-  labs(title = "Locations of Top / Bottom 5 MSE Reduction Counties Compared to SSD Model",
-       fill = "") 
+  labs(title = "Locations of Top 5 MSE Reduction Counties",
+       caption= "Compared to SSD Model", 
+       fill="") 
 ```
-
-First is a map of the log design SEs. We can see that the western and eastern counties have the highest design SEs. Intuitively, the top/bottom 5 counties in terms of MSE reductions (relative to the SSD model) are mostly located in these places. 
 
 ### Where did SSD Model decreae MSE?
 
@@ -204,63 +240,118 @@ mse_pltDf %>%
   mutate(mse_reduction = ifelse(mse_reduction > 0, mse_reduction, 0)) %>% 
   ggplot(aes(fill = log(mse_reduction))) +
   geom_sf() +
-  scale_fill_viridis_c(direction=+1, option="magma") +
+  scale_fill_viridis_c(direction=+1, option="G") +
   labs(title = "MSE Reduction Relative to SSD Model",
        fill = "log(MSE *reduction*)") +
   theme_void() + facet_wrap(~model, nrow=2)
 ```
 
-We can see that the pattern of the MSE reductions are fairly different, except for the BYM and CAR models which are very similar in nature. 
+We can see that the highest MSE reductions by the SSD are achieved in the northeastern corner of the state. These are the same counties where the models generally struggle with compared to the direct estimate. This echoes what we saw in the first plot. Outside of the high reduction counties, the patterns differ a bit but there are still some similarities. 
 
 
-Below are the summary statistics for the square root of the MSE reduction. The mean reduction was $0.012^2$. 
 
-```{r echo=FALSE}
-tmpDf = mse_pltDf %>% 
-  filter(mse_reduction > 0 ) 
+<!-- ### Where did SSD Model increase MSE? -->
 
-summary(sqrt(tmpDf$mse_reduction)) 
+<!-- Below are the summary statistics for the square root of the MSE increases.  -->
+
+<!-- We can also see where MSE *increased* relative to the SSD Model. We can see that the SSD model seems to increase MSE slightly compared to the models in many areas (which is compensated by large reductions in a few areas). Note that $-10$ log MSE reduction is approximately $\approx 0.007^2$ on the original scale  -->
+
+
+<!-- ```{r fig.width=8, fig.height=5} -->
+<!-- mse_pltDf %>%  -->
+<!--   mutate(mse_increase = ifelse(mse_reduction < 0, -mse_reduction, 0)) %>%  -->
+<!--   ggplot(aes(fill = log(mse_increase) )) + -->
+<!--   geom_sf() + -->
+<!--   scale_fill_viridis_c(option="G") + -->
+<!--   labs(title = "MSE Increase Relative to SSD Model", -->
+<!--        fill = "log(MSE *increase*)")  + -->
+<!--   theme_void() + facet_wrap(~model, nrow=2)  -->
+<!-- ``` -->
+
+
+
+## Coverage Analysis
+
+### Undercoverage of a 90% credible interval by model 
+
+
+```{r}
+# Calculating coverage by area 
+covRate_df <- ci_all_sims %>% group_by(area, model) %>%
+   reframe(cov_rate=mean(covered)) 
+
+cr_pltDf = pop %>% 
+  left_join(ref_table, by = join_by(GEOID)) %>% 
+  left_join(covRate_df, by = join_by(area)) %>% 
+  filter(model!="CAR") %>% 
+  mutate(model=ifelse(model=="New", "SSD", model))
 ```
 
-
-
-### Where did SSD Model increase MSE?
-
-Below are the summary statistics for the square root of the MSE increases. 
-
-We can also see where MSE *increased* relative to the SSD Model. We can see that the SSD model seems to increase MSE slightly compared to the models in many areas (which is compensated by large reductions in a few areas). Note that $-10$ log MSE reduction is approximately $\approx 0.007^2$ on the original scale 
-
-
-```{r fig.width=8, fig.height=5}
-mse_pltDf %>% 
-  mutate(mse_increase = ifelse(mse_reduction < 0, -mse_reduction, 0)) %>% 
-  ggplot(aes(fill = log(mse_increase) )) +
+```{r fig.width=8, fig.height=4}
+cr_pltDf %>% 
+  ggplot(aes(fill = 0.9-cov_rate)) +
   geom_sf() +
-  scale_fill_viridis_c(option="G") +
-  labs(title = "MSE Increase Relative to SSD Model",
-       fill = "log(MSE *increase*)")  +
-  theme_void() + facet_wrap(~model, nrow=2) 
+  theme_void() + facet_wrap(~model, nrow=2) +
+  scale_fill_viridis_c(option="magma") + 
+    labs(title = "",
+       fill = "0.9-Cov.Rate") 
 ```
 
+Here we plot the undercoverage of the average coverage rate in each area. We define undercoverage as $0.9-\textrm{Avg. Coverage Rate}$. If a model, on average achives 90% coverage in a given area, the value should be zero.
 
-Below are the summary statistics for the square root of the MSE increases. The mean increase in MSE was $7.156e-03^2$, much smaller than the decrease in MSE. 
+We can see from this plot that undercoverage is very high in the same counties (located in the northeastern and western edges of the state) that had accuracy issues. The models without random effects selection (BYM and FH models) struggle mightily in these areas. The DM model struggles a bit less than the other models in these areas but has higher undercoverage in other parts of the state. This can also be seen in the plot below. 
 
-```{r echo=FALSE}
-tmpDf = mse_pltDf %>% 
-  filter(mse_reduction < 0 ) %>% 
-  mutate(mse_increase = -mse_reduction)
 
-summary(sqrt(tmpDf$mse_increase))
+### Log Design SEs vs. Coverage by model
+
+```{r fig.width=7, fig.height=4}
+tmp.df = data.frame(area=1:nrow(all_data),
+                    SE = all_data$rentBurdenSE) 
+
+covRate_df %>% left_join(tmp.df) %>% 
+  filter(model!="CAR") %>% 
+  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
+  ggplot(aes(x=log(SE), y=cov_rate)) + 
+  geom_point(alpha=0.7) + 
+  facet_wrap(~model, nrow=2) +
+  geom_hline(yintercept = 0.9, lty=2, color="blue") +
+  theme_bw() +
+  geom_area(aes(y=0.7), fill="red", alpha=0.1) +
+      labs(title = "", 
+           caption="Coverage of a 90% Credible Interval") +
+  ylab("Coverage Rate")
+```
+
+Here is a plot of the log design SEs compared to the coverage rate of a 90% credible interval from each model. The dotted line is 90% (the target coverage rate), and the red area indicates coverage below 70%. We can see that the coverage rate for many models start to drop as the SE gets larger. There is a clear difference when you compare the SSD to the other models. 
+
+Below is a table with the minimum, 5th, 10th, and 25th percentile values of the coverage rate (rounded to the 4th digit). In fact, we can see that the BYM and the FH have horrible coverage for the lowest 5% of counties but has better coverage for the 25th percentile than the DM. This is what results in the DM having very low coverage overall. Again, the SSD really outperforms the other models. 
+
+```{r}
+covRate_df %>% group_by(model) %>% 
+   filter(model!="CAR") %>%
+  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
+  reframe(Min=min(cov_rate), 
+          `5th Percentile`=quantile(cov_rate, 0.05) %>% round(4), 
+          `10th Percentile`=quantile(cov_rate, 0.1) %>% round(4), 
+          `25th Perentile`=quantile(cov_rate, 0.25) %>% round(4), 
+          Mean = mean(cov_rate) %>% round(4)) %>% 
+  knitr::kable()
 ```
 
 
 
 ## Summary
 
-- There are areas in the eastern parts of the state where models struggle in terms of accuracy. The SSD performs the best in these areas compared to the other models. 
+### MSE 
+
+- There are areas in the eastern parts of the state where models struggle in terms of accuracy where design SE is large. The SSD performs the best in these areas compared to the other models. 
 - Reductions over the direct estimate are achieved in most counties
 - Reductions over the other model estimates are concentrated in a few counties where high and small area means are adjacent to each other. This is seen in the northeastern/eastern part of the state and some counties along the western edge of the state. 
 
+### Coverage
+
+- The same areas that have accuracy issues also cause coverage issues for the other models 
+- BYM and the FH have horrible coverage for the lowest 5% of counties (compared to the DM & SSD) but has better coverage for the 25th percentile than the DM. 
 
 
 

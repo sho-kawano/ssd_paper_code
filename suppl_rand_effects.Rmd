@@ -168,9 +168,9 @@ pop %>%
   facet_wrap(~Model)
 ```
 
-Here is a comparison of the differences between the SSD random effects and the other models. As expected, difference compared to the IID models (DM & FH) have a strong spatial pattern. The difference between the BYM and the SSD is marked by a few spots of large differences. It is interesting, however, that the difference in the random effects between these two models has a spatial pattern down by Florida. 
+Here is a comparison of the differences between the SSD random effects and the other models. As expected, difference compared to the IID models (DM & FH) have a strong spatial pattern. The difference between the BYM and the SSD is marked by a few spots of large differences. It is interesting, however, that the difference in the random effects between these two models has still has a spatial pattern down by Florida. We can also see that compared to the non selection models (FH & BYM), there are a few counties where SSD random effects are much larger in magnitude.
 
-It seems that the BYM effects in Florida are drawn upwards by the presence of one county with very large effects in south Florida. This can be seen in the maps below. We can see that the models with selection can allow for counties with very large magnitude effects without unnecessarily impacting the surrounding counties that may not need random effects. This can be see in other places in the census division. 
+In fact, we can see from the map below that the both models with selection (DM & SSD) has larger magnitude effects. This is due to these models not having a common variance assumption. This can be see in other places in the census division. 
 
 
 ```{r fig.dim=c(8, 7)}
@@ -195,4 +195,4 @@ test_fh=geary.mc(fh_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = 
 test_dm=geary.mc(dm_reffects, mat2listw(A, style="W"), nsim=4000, zero.policy = F)
 ```
 
-Overall, we can see that all of the models have fairly similar spatial patterns.  A Monte-Carlo simulation of a Geary's C test was performed on the random effects for the Fay-Herriot and Datta-Mandal. Here are the p-values: `r test_fh$p.value` and `r test_dm$p.value`.
+Overall, we can see that all of the models have fairly similar spatial patterns.  A Monte-Carlo simulation of a Geary's C test was performed on the random effects for the non-spatial models (FH & DM). Here are the p-values: `r test_fh$p.value` and `r test_dm$p.value`.
