@@ -20,3 +20,7 @@ data <- load_county(region, home_folder, key, save_data = T)
 data_geom <- get_acs(geography = "county", variables = "B25071_001", 
                year = 2019, state = region, geometry = T, cb=F)
 saveRDS(data_geom, file="data/sa_data_w_geom.RDS")
+
+# download IL data used for prior sensitivity analysis 
+state = "IL"
+data = load_county(state, home_folder, key, save_data = T)
