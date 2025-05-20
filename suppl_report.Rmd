@@ -110,7 +110,7 @@ mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>%
   mutate(model=ifelse(model=="New", "SSD", model))
 ```
 
-```{r fig.width=7, fig.height=5, fig.cap="Area-Specific MSE from Direct Estimates vs. Models"}
+```{r fig.width=7, fig.height=5, fig.cap="Area-specific MSE from direct estimates vs. models"}
 mse_pltDf %>% 
   ggplot(aes(x=log(D.Est), y=log(mse) )) +  
   facet_wrap(~model, nrow=2) +
@@ -164,7 +164,7 @@ We define undercoverage as $0.9-\textrm{Coverage Rate}$. If a model, on average 
 The counties where the other models struggled in terms of coverage is the same counties are the same counties where they struggle in terms of accuracy. The models without random effects selection (BYM and FH models) struggle mightily in these problematic counties. The DM model struggles a bit less than the other models in these counties but has higher undercoverage in other parts of the state. This can also be seen in Figure S3, where we show the log design SEs compared to the coverage rate of a 90% credible interval from each model. The dotted line is 90% (the target coverage rate), and the red area indicates coverage below 70%. We can see that the coverage rate for many models start to drop as the SE gets larger. There is a clear difference when you compare the performance of the SSD to the other models. 
 
 
-```{r fig.width=6, fig.height=4, fig.cap="Log Design SEs vs. Coverage by model"}
+```{r fig.width=6, fig.height=4, fig.cap="Log design SEs vs. coverage by model"}
 tmp.df = data.frame(area=1:nrow(all_data),
                     SE = all_data$rentBurdenSE) 
 
@@ -231,7 +231,7 @@ pop <- readRDS("data/sa_data_w_geom.RDS")
 
 
 
-```{r fig.height=4, fig.width=8, fig.cap="Posterior Means of Selection Probabilities vs. Random Effects for DM and SSD Model"}
+```{r fig.height=4, fig.width=8, fig.cap="Posterior means of selection probabilities vs. random effects for DM and SSD Model"}
 
 # create the dataframe with the necessary data 
 dm_reffects = (dm_res$v*dm_res$delta) %>% colMeans()
@@ -288,7 +288,7 @@ plt_df = plt_df %>%
   pivot_longer(cols=FH:New, names_to="model", values_to = "reffects")
 ```
 
-```{r big_reffect_map, fig.dim=c(7, 6.5), fig.cap="Random Effect Posterior Means from 4 Different Models", cache=TRUE}
+```{r big_reffect_map, fig.dim=c(7, 6.5), fig.cap="Random effect posterior means from 4 different models", cache=TRUE}
 plt_df %>%
   # filter(model %in% c("DM", "New")) %>% 
   mutate(model=ifelse(model=="New", "SSD", model)) %>% 
@@ -358,7 +358,7 @@ $$f(x | c, d) = \frac{d^c}{\Gamma(c)} (1/x)^{c+1} \exp(- d / x).$$ We denote thi
 For every inverse-gamma distribution, there is threshold value $t$ at which $P(X < t)= \alpha$
 for some small probability $\alpha$. For example for $c=3$, $d=3$, and $\alpha=0.001$ the threshold $t$ is $\approx 0.145$. In the figure below, we can see the gap increase as we alter the shape $c$ and scale $d$ parameters. 
 
-```{r fig.height=2, fig.width=6, fig.cap="Gaps Near Zero for Different Inverse-Gamma Priors"}
+```{r fig.height=2, fig.width=6, fig.cap="Gaps near zero for different Inverse-Gamma priors"}
 par(mfrow=c(1, 3), mar=c(4, 3, 2, 3))
 
 c=1; d=1
@@ -441,7 +441,7 @@ The *posterior selection probabilities* $\tilde p_{i}$ allows us to assess shrin
 Figure S7 is a plot of the different $t$ values and average *posterior* average selection probabilities resulting from different inverse-gamma priors for the rent burden dataset in North Carolina. We can see that there is larger values of $t$ lead to more random effects being reduced to zero (lower selection probability). Note that the drop in average selection probability is quite large for  $t< 0.3$ but there is an inflection point near $0.3$. This is a pattern we have observed in other datasets as well. Thus *we recommend any Inverse-Gamma prior with $t>0.3$ with $\alpha=0.001$*. 
 
 
-```{r message=FALSE,  fig.height=3, fig.width=5, fig.cap="Impact on Random Effects Shrinkage of Varying Priors" }
+```{r message=FALSE,  fig.height=3, fig.width=5, fig.cap="Impact on random effects shrinkage of varying priors" }
 hyp_choices %>% mutate(avg_selection_prob = avg_sel_prob ) %>% 
   ggplot(aes(x=t, y=avg_selection_prob)) + geom_point() + 
   geom_line(linewidth=0.5, lty=2)  + 
@@ -456,7 +456,7 @@ hyp_choices %>% mutate(avg_selection_prob = avg_sel_prob ) %>%
 
 In Figure S8 we show the variability of the point estimates of rent burden for Inverse-Gamma priors with $t>0.3$ for the North Carolina dataset. We can see that the prior choice has minimal impact outside of a few areas. There are two areas with some variability (areas 72, 94).  These correspond to estimates for Perquimans and Washington counties that have the highest design variance. Thus the prior choice has a significant impact on the estimates for these counties. Note that this is not a problem for all datasets, as seen in the next example.
 
-```{r fig.height=8, fig.width=6, fig.cap="Prior Impact on Point Estimates for IG Priors (t>0.3) - North Carolina Rent Burden Data"}
+```{r fig.height=8, fig.width=6, fig.cap="Prior impact on point estimates for IG priors (t>0.3) - North Carolina Rent Burden Data"}
 estim = sapply(5:num_priors, 
                function(i){ 
   theta.orig.scl = exp(list_of_chains[[i]]$theta*list_of_chains[[i]]$scale + list_of_chains[[i]]$center)
@@ -522,7 +522,7 @@ avg_sel_prob = sapply(1:num_priors, function(i){ list_of_chains[[i]]$p.delta %>%
 
 We repeat this exercise again with Illinois $n=102$ and estimating poverty rates. In Figure S9, we show the variability of the point estimates for Inverse-Gamma priors with $t>0.3$. We can see that the priors have very limited effects on the point estimates. 
 
-```{r fig.height=9, fig.width=6, fig.cap="Prior Impact on Point Estimates for IG Priors (t>0.3) - Illinois Poverty Data"}
+```{r fig.height=9, fig.width=6, fig.cap="Prior impact on point estimates for IG priors (t>0.3) - Illinois Poverty Data"}
 estim = sapply(5:num_priors, 
                function(i){ 
   theta.orig.scl = exp(list_of_chains[[i]]$theta*list_of_chains[[i]]$scale + list_of_chains[[i]]$center)
