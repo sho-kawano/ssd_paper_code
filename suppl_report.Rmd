@@ -1,12 +1,16 @@
 ---
-title: "Supplemental Report for JRSSA-Apr-2024-0120"
-author: "Sho Kawano | January 25th, 2025"
+title: Supplementary Material for “Spatially Selected and Dependent Random Effects for Small Area Estimation with Application to Rent Burden” by S. Kawano, P.A. Parker, Z.R. Li
+author: Sho Kawano, Department of Statistics, UC Santa Cruz.
+date:  shkawano@ucsc.edu
 output: 
   pdf_document:
     toc: true # table of content true
     toc_depth: 1  # upto three depths of headings (specified by #, ## and ###)
     number_sections: true  ## if you want number sections at each table header
+    includes:
+      in_header: preamble.tex
 ---
+
 
 ```{r setup, include=F}
 knitr::opts_chunk$set(echo = F, warning = F, message=F)
@@ -18,7 +22,74 @@ library(patchwork)
 
 
 
+
+\newpage 
+# Further Analysis on Simulation Study Results 
+
+
+**Simulation Study Results with CAR model**
+
+```{r }
+load("data/data_NC/data.RDA")
+
+y <- all_data$rentBurden
+D <- all_data$rentBurdenSE^2
+
+y.star <- log(y)
+D.star <- D / y^2
+
+n <- nrow(all_data)
+reference.df = data.frame(area=1:n, truth=y)
+
+source("sim_analysis_functions/calc_results.R")
+```
+
+```{r}
+library(tidyverse)
+load("sim_results_NC/results_by_sim.RDA")
+
+# Calculating TMSE Across Models & Simulation
+mse_df <- errs_all_sims %>% group_by(sim, model) %>% summarise(mse=mean(err^2)) %>% 
+  ungroup() %>% group_by(model) %>% summarise(avg_mse=mean(mse) %>% round(5)) %>% 
+  arrange(desc(avg_mse)) %>% ungroup() 
+
+covRate_df <- ci_all_sims %>% group_by(sim, model) %>%
+   reframe(cove_rate=sum(covered)/nrow(all_data)) %>%
+  ungroup() %>%
+  group_by(model) %>% 
+  reframe(avg_cov_rate=mean(cove_rate) %>% round(4)) %>%
+  arrange(desc(avg_cov_rate))
+
+intScore_df <- ci_all_sims %>% group_by(sim, model) %>%
+  reframe(int_score = (upr-lwr) + (2/0.1)*(lwr-truth)*(truth<lwr) +
+              (2/0.1)*(truth-upr)*(truth>upr), covered=covered) %>%
+  group_by(model) %>% reframe(avg_int_score =mean(int_score) %>% round(4)) %>%
+  arrange(desc(avg_int_score))
+
+bias_df <- postMean_all_sims %>% group_by(area, model) %>%
+  reframe(theta.hat=mean(post.mean)) %>%
+  left_join(reference.df, by="area") %>%
+  mutate(bias=abs(theta.hat-truth)) %>%
+  group_by(model) %>%
+  reframe(avg_bias = mean(bias) %>% round(4)) %>%
+  arrange(desc(avg_bias))
+options(scipen=0)
+mse_df %>% 
+  left_join(covRate_df, by = join_by(model)) %>% 
+  left_join(intScore_df, by = join_by(model)) %>% 
+  left_join(bias_df, by = join_by(model)) %>% 
+  mutate(model=ifelse(model=="New", "SSD", model)) %>% 
+  rename(Model = model, `Avg. MSE`=avg_mse, `Avg. Coverage Rate`=avg_cov_rate, 
+         `Avg. Interval Score` = avg_int_score, `Avg. Bias`=avg_bias) %>% 
+    knitr::kable(caption="A comparison of estimates from various methods in our empirical simulation study, which used ACS median rent burden data from North Carolina.")
+```
+
+Note that these are the same results from our main manuscript, except we include the results from the CAR model (which is closely related to the BYM model). The simulation study contained 300 simulation iterations. For the models, posterior means were used as point estimates and $90$% Credible Intervals were used for the interval estimates.
+
+**Comparing MSE**
+
 ```{r include=F}
+rm(list = ls()) # clear all objects
 load("data/data_NC/data.RDA")
 load("sim_results_NC/results_by_sim.RDA")
 
@@ -39,13 +110,6 @@ mse_pltDf = pop %>% left_join(ref_table, by = join_by(GEOID)) %>%
   mutate(model=ifelse(model=="New", "SSD", model))
 ```
 
-
-\newpage 
-
-# Further Analysis on Simulation Study Results 
-
-## Comparing MSE 
-
 ```{r fig.width=7, fig.height=5, fig.cap="Area-Specific MSE from Direct Estimates vs. Models"}
 mse_pltDf %>% 
   ggplot(aes(x=log(D.Est), y=log(mse) )) +  
@@ -60,15 +124,14 @@ mse_pltDf %>%
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-In figure 1, we compare the Area-Specific MSE which we define as: 
+In Figure S1, we compare the Area-Specific MSE which we define as: 
 
 $$\mbox{MSE for area } i = \frac{1}{G} \sum_{g=1}^G  (\hat{z}^{(g)}_i-z_i)^2$$
 where $G=300$ is the number of simulations in the study. Note that this *differs* from the Average MSE we compared in the main manuscript that averages MSE across all areas and simulations. If a model outperformed the direct estimate for a given area, a point would lie *below* the line. We can see that the SSD model achieves a MSE reductions across the board. 
 
 There are a few areas where using a model increases MSE (enclosed in rectangle) relative to the direct estimate. The increase in MSE is *lower* for SSD model than all other models. This is a major factor in why the SSD model outperforms others. 
 
-\newpage 
-## Comparing Coverage
+**Comparing Coverage**
 
 ```{r}
 # Calculating coverage by area 
@@ -94,14 +157,14 @@ cr_pltDf %>%
        caption="Red indicates high undercoverage") 
 ```
 
-In figure 2, we plot the area-specific undercoverage of a 90% credible interval. We define the area-specific coverage rate as: 
+In Figure S2, we plot the area-specific undercoverage of a 90% credible interval. We define the area-specific coverage rate as: 
 $$\mbox{Coverage Rate for Area } i = \frac{1}{G} \sum_{g=1}^G  \boldsymbol{I} \{\hat{l}_i^{(g)} < z_i\} \cdot \boldsymbol{I} \{z_i< \hat{u}_i^{(g)}\}.$$
 We define undercoverage as $0.9-\textrm{Coverage Rate}$. If a model, on average achives 90% coverage in a given area, the value should be zero. The counties in **red** in the map indicates **high undercoverage** which means that the **interval estimate is poor** for a given county and model. 
 
-The counties where the other models struggled in terms of coverage is the same counties are the same counties where they struggle in terms of accuracy. The models without random effects selection (BYM and FH models) struggle mightily in these problematic counties. The DM model struggles a bit less than the other models in these counties but has higher undercoverage in other parts of the state. This can also be seen in Figure 3, where we show the log design SEs compared to the coverage rate of a 90% credible interval from each model. The dotted line is 90% (the target coverage rate), and the red area indicates coverage below 70%. We can see that the coverage rate for many models start to drop as the SE gets larger. There is a clear difference when you compare the performance of the SSD to the other models. 
+The counties where the other models struggled in terms of coverage is the same counties are the same counties where they struggle in terms of accuracy. The models without random effects selection (BYM and FH models) struggle mightily in these problematic counties. The DM model struggles a bit less than the other models in these counties but has higher undercoverage in other parts of the state. This can also be seen in Figure S3, where we show the log design SEs compared to the coverage rate of a 90% credible interval from each model. The dotted line is 90% (the target coverage rate), and the red area indicates coverage below 70%. We can see that the coverage rate for many models start to drop as the SE gets larger. There is a clear difference when you compare the performance of the SSD to the other models. 
 
 
-```{r fig.width=6, fig.height=3, fig.cap="Log Design SEs vs. Coverage by model"}
+```{r fig.width=6, fig.height=4, fig.cap="Log Design SEs vs. Coverage by model"}
 tmp.df = data.frame(area=1:nrow(all_data),
                     SE = all_data$rentBurdenSE) 
 
@@ -119,7 +182,6 @@ covRate_df %>% left_join(tmp.df) %>%
 ```
 
 
-\newpage 
 
 # Further Analysis on Random Effects from Data Analysis
 
@@ -169,8 +231,6 @@ pop <- readRDS("data/sa_data_w_geom.RDS")
 
 
 
-## What kind of random effects are selected? 
-
 ```{r fig.height=4, fig.width=8, fig.cap="Posterior Means of Selection Probabilities vs. Random Effects for DM and SSD Model"}
 
 # create the dataframe with the necessary data 
@@ -202,12 +262,9 @@ plt2 = tmp.df %>% ggplot(aes(x=sel_prob, y=reffects)) +
 plt1+ plt2
 ```
 
-We can see from Figure 4 that the areas where the selection probability is high (close to 1) also have larger magnitude random effects. The relationship is more clear-cut for the DM model. There is some ``noise" from the SSD model resulting from the dependence of the random effects and the $p_i$ parameters, both of which impacts the selection probability. See discussion in section 3.2 of the main manuscript for details. 
+We can see from Figure S4 that the areas where the selection probability is high (close to 1) also have larger magnitude random effects. The relationship is more clear-cut for the DM model. There is some ``noise" from the SSD model resulting from the dependence of the random effects and the $p_i$ parameters, both of which impacts the selection probability. See discussion in section 3.2 of the main manuscript for details. 
 
-
-## Comparing Random Effects from Different Models 
-
-We can see from the map below that the SSD incorporates elements from the other models. Both models with selection (DM & SSD) has larger magnitude effects than the other two models, due to these models not having a common variance assumption. Also, we can see that all of the models have fairly similar spatial patterns. But the spatial dependence is obviously more explicit in the spatial models (BYM and SSD). 
+We can see from the map below (Figure S5) that the SSD incorporates elements from the other models. Both models with selection (DM & SSD) has larger magnitude effects than the other two models, due to these models not having a common variance assumption. Also, we can see that all of the models have fairly similar spatial patterns. But the spatial dependence is obviously more explicit in the spatial models (BYM and SSD). 
 
 ```{r}
 fh_reffects = fh_res$v %>% colMeans()
@@ -244,7 +301,8 @@ plt_df %>%
   labs(#title = "Random Effects from Each Model",
        #caption="Comparing Posterior Means",
        fill = "Random Effects")  +
-  theme_void() + facet_wrap(~model, nrow=2)
+  theme_void() + 
+  facet_wrap(~model, nrow=2)
 ```
 
 \newpage 
@@ -293,7 +351,7 @@ The parameters that require priors are the regression coefficients $\boldsymbol{
 We have observed that the choice of prior on the random effect variances $\sigma_1^2$, $\sigma_2^2$ have the biggest impact on the estimates, as they influence the inclusion probabilities $p_i$. Thus, our prior **sensitivity analysis focuses entirely on these random effect variances**. We first start by discussing a key feature of the inverse-gamma distribution: the gap near the origin. 
 
 
-## The Gap Near the Origin for Different Inverse-Gamma Priors
+**The Gap Near the Origin for Different Inverse-Gamma Priors**
 
 Let $X$ be an inverse-gamma prior with the density: 
 $$f(x | c, d) = \frac{d^c}{\Gamma(c)} (1/x)^{c+1} \exp(- d / x).$$ We denote this as $X \sim IG(c, d).$ 
@@ -348,7 +406,7 @@ num_priors = nrow(hyp_choices)
 hyp_choices = hyp_choices %>% mutate(t = sapply(1:num_priors, find_t)) %>% arrange(t)
 ```
 
-## Assessing Impact on Random Effects Shrinkage
+**Assessing Impact on Random Effects Shrinkage**
 
 ```{r  mcmc_chains_nc, warning=F, message=FALSE, cache=TRUE}
 # load sampler 
@@ -380,7 +438,7 @@ avg_sel_prob = sapply(1:num_priors, function(i){ list_of_chains[[i]]$p.delta %>%
 
 The *posterior selection probabilities* $\tilde p_{i}$ allows us to assess shrinkage in the random effects (see eq. 2 in section 3.2). To get a sense of the overall level of shrinkage for a given dataset, we examine the average posterior selection probability across all areas (i.e. $\tfrac{1}{n} \sum_{i=1}^n \tilde p_{i}$).
 
-Below is a plot of the different $t$ values and average *posterior* average selection probabilities resulting from different inverse-gamma priors for the rent burden dataset in North Carolina. We can see that there is larger values of $t$ lead to more random effects being reduced to zero (lower selection probability). Note that the drop in average selection probability is quite large for  $t< 0.3$ but there is an inflection point near $0.3$. This is a pattern we have observed in other datasets as well. Thus *we recommend any Inverse-Gamma prior with $t>0.3$ with $\alpha=0.001$*. 
+Figure S7 is a plot of the different $t$ values and average *posterior* average selection probabilities resulting from different inverse-gamma priors for the rent burden dataset in North Carolina. We can see that there is larger values of $t$ lead to more random effects being reduced to zero (lower selection probability). Note that the drop in average selection probability is quite large for  $t< 0.3$ but there is an inflection point near $0.3$. This is a pattern we have observed in other datasets as well. Thus *we recommend any Inverse-Gamma prior with $t>0.3$ with $\alpha=0.001$*. 
 
 
 ```{r message=FALSE,  fig.height=3, fig.width=5, fig.cap="Impact on Random Effects Shrinkage of Varying Priors" }
@@ -394,9 +452,9 @@ hyp_choices %>% mutate(avg_selection_prob = avg_sel_prob ) %>%
 ```
 
 
-## Assessing Impact on Estimates (North Carolina)
+**Assessing Impact on Estimates (North Carolina)**
 
-Here we show the variability of the point estimates of rent burden for Inverse-Gamma priors with $t>0.3$ for the North Carolina dataset. We can see that the prior choice has minimal impact outside of a few areas. There are two areas with some variability (areas 72, 94).  These correspond to estimates for Perquimans and Washington counties that have the highest design variance. Thus the prior choice has a significant impact on the estimates for these counties. Note that this is not a problem for all datasets, as seen in the next example.
+In Figure S8 we show the variability of the point estimates of rent burden for Inverse-Gamma priors with $t>0.3$ for the North Carolina dataset. We can see that the prior choice has minimal impact outside of a few areas. There are two areas with some variability (areas 72, 94).  These correspond to estimates for Perquimans and Washington counties that have the highest design variance. Thus the prior choice has a significant impact on the estimates for these counties. Note that this is not a problem for all datasets, as seen in the next example.
 
 ```{r fig.height=8, fig.width=6, fig.cap="Prior Impact on Point Estimates for IG Priors (t>0.3) - North Carolina Rent Burden Data"}
 estim = sapply(5:num_priors, 
@@ -415,9 +473,9 @@ estim %>% t() %>% as.data.frame() %>%
   theme(axis.text=element_text(size=7))
 ```
 
-We can see that the prior choice has minimal impact outside of a few areas. There are two areas with some variability (areas 72, 94).  These correspond to estimates for Perquimans and Washington counties that have the highest design variance. Thus the prior choice has a significant impact on the estimates for these counties. Note that this is not a problem for all datasets, as seen in the next example.
 
-## Assessing Impact on Estimates (Illinois)
+
+**Assessing Impact on Estimates (Illinois)**
 
 ```{r  mcmc_chains_il, warning=FALSE, cache=TRUE}
 #south atlantic census division
@@ -462,7 +520,7 @@ stopCluster(cl)
 avg_sel_prob = sapply(1:num_priors, function(i){ list_of_chains[[i]]$p.delta %>% colMeans() %>% mean()})
 ```
 
-We repeat this exercise again with Illinois $n=102$ and estimating poverty rates. Here we show the variability of the point estimates for Inverse-Gamma priors with $t>0.3$. 
+We repeat this exercise again with Illinois $n=102$ and estimating poverty rates. In Figure S9, we show the variability of the point estimates for Inverse-Gamma priors with $t>0.3$. We can see that the priors have very limited effects on the point estimates. 
 
 ```{r fig.height=9, fig.width=6, fig.cap="Prior Impact on Point Estimates for IG Priors (t>0.3) - Illinois Poverty Data"}
 estim = sapply(5:num_priors, 
@@ -479,11 +537,137 @@ estim %>% t() %>% as.data.frame() %>%
 ```
 
 
-## Conclusion & Recommendation 
+**Conclusion & Recommendation** 
 
 We conducted a prior sensitivity analysis for the random effect variance parameters for the SSD model. The prior choice of these parameters can influence the level of shrinkage and the value of estimates, especially in areas with high design variance. 
 
 We tested the model on two different datasets. We saw that choosing an inverse-gamma prior with $t$ value that is too small may force the random effects for most areas to be selected. On the other hand, having $t$ that is very large can force higher shrinkage and lower selection probabilities. We recommend choosing a inverse-gamma prior with $t>0.3$ for $\alpha=0.001$ that balances both of these factors. For the work done for our main manuscript, we chose the prior $IG(5, 5)$ where $t\approx 0.34$. 
 
-# Full Conditionals Derivation 
+# Full Conditionals Derivation
+
+Let $\bb \Omega$ denote the set of parameters in the SSD model. Then, the full posterior distribution can be written, up to a constant of proportionality, as 
+\begin{align*}
+ \pi(\bb \Omega \given  \bb{y}, \bb{X}, \bb{D}) &\propto exp \biggset{-\tfrac{1}{2} (\bb{y} - \bb{X} \bb{\beta} - \bb{\delta} \odot [\bb{v_1} + \bb{v_2}])^\top \bb{D}^{ -1} (\bb{y} - \bb{X} \bb{\beta} - \bb{\delta} \odot [\bb{v_1} + \bb{v_2}]) } \\
+ &\times  (\tfrac{1}{\sigma_1^2} )^{n/2} (\tfrac{1}{\sigma_2^2} )^{n/2} exp\bigset{-\tfrac{1}{2 \sigma_1^2} \bb{v_1}^\top\bb{v_1} -\tfrac{1}{2 \sigma_2^2} \bb{v_2}^\top \bb{Q}\bb{v_2} } \\
+ &\times \prod_{i=1}^n p_i^{\delta_i} (1-p_i)^{1-\delta_i} \\
+ &\times (\tfrac{1}{s_1^2} )^{n/2} (\tfrac{1}{s_2^2} )^{n/2} exp\bigset{-\tfrac{1}{2 s_1^2} \bb{\psi_1}^\top\bb{\psi_1} -\tfrac{1}{2 s_2^2} \bb{\psi_2}^\top \bb{Q}\bb{\psi_2} } \\
+ &\times \pi(\beta) \, \pi(\sigma^2_1) \, \pi(\sigma^2_2) \, \pi(s_1^2) \, \pi(s_2^2).
+\end{align*}
+Note that $\bb{y} = (y_1, \dots, y_n)^\top$ are the vector of scaled direct estimates, the $n \times n$ covariance matrix $\bb{D}=\textrm{diag} \set{d_1, \cdots, d_n}$ where $d_i$ are the scaled survey variances, and $\bb{X}$ is a $n \times j$ full-rank covariate matrix. For ease of notation we will denote $\set{\bb{y}, \bb{X}, \bb{D}}$ together as $data$. We also use $\bb{I}_m$ to denote an identity matrix of rank $m$ and use $\bb{Q}$ to denote the \textit{scaled} ICAR precision matrix. Finally, we also use $\cdots$ to denote the data and all parameters that are given for the conditional posterior distributions  
+
+Note that we used the priors  $[\sigma_1^2] \sim IG(c, d)$, and $[\sigma_2^2] \sim IG(c, d)$ for the random effect variances. For the regression coefficients, we use proper prior $[\bb \beta] \sim N_j (\bb 0, k^2 \bb{I})$ where the hyperparameter $k^2$ is sufficiently large as to be non-informative. We let $s_{1}^2 \sim IG(r, q)$ and $s_{2}^2 \sim IG(r, q)$ for fixed hyperparameters $a, b$, where we recommend $r=5$ and $q=10$. 
+
+## Full conditional distributions of $\bb{v_1}$, $\bb{v_2}$, and $\bb{\beta}$ 
+
+**Case when $\delta_i \neq 0$ for some $i=1, \cdots, n$:**
+
+The fixed and random effects $\bb \beta$ and $\bb{v_1, v_2}$ can be sampled in a block. In order to do so, we set $\bb \gamma = \begin{pmatrix} \bb{\beta}^\top, &  \bb{v}_1^\top, & \bb{v}_2^\top \end{pmatrix}^\top$ and $\bb{Z} = \begin{pmatrix} \bb{X} & \Delta & \Delta \end{pmatrix}$ where $\Delta = \textrm{diag}\{\delta_i\}^n_{i=1}$ and $\bb{Z} \gamma = \bb{X} \bb{\beta} + \bb{\delta} \odot (\bb{v_1 + v_2})$. Then the prior is given by 
+
+$$\bb{\gamma} \sim N_{j+2n}(\bb{0}_{j+2n}, \bb{\Lambda_\gamma}^{-1}) \textspace{where}{1mm} \bb{\Lambda}_\gamma = \begin{pmatrix}
+   \bb{I}_j/ k^2 & 0 & 0 \\
+   0 & \bb{I}_n / \sigma^2_1 & 0 \\
+  0 & 0 & \bb{Q} / \sigma^2_{2}
+\end{pmatrix}$$
+
+where $\bb{\Lambda_\gamma}$ is the prior precision matrix. The posterior distribution of $\bb \gamma$ is proportional to 
+
+\begin{align*}
+    \pi(\bb \gamma \given \cdots) &\propto exp \set{-\tfrac{1}{2} (\bb{y} - \bb{Z\gamma})^\top \bb{D}^{ -1} (\bb{y} - \bb{Z\gamma}) } \times exp\set{-\tfrac{1}{2} \bb{\gamma}^\top \bb{\Lambda}_\gamma  \bb{\gamma}}. 
+\end{align*}
+
+The terms inside the exponential can be combined by completing squared to get 
+
+\begin{align*}
+  [\bb \gamma \given \sigma_1^2, \sigma_2^2, \bb \delta, data] \sim N_{j + 2n} \bigg( \bb{P}_\gamma^{ -1} \bb{D}^{ -1} \bb{Z}^{\top }  \bb{y}, \, \bb{P}_\gamma^{ -1}\bigg )
+\end{align*}
+
+where $\bb{P}_\gamma$ is the posterior precision matrix given by $\bb{P}_\gamma = \bb{Z}^\top \bb{D}^{ -1} \bb{Z} + \bb{\Lambda}_\gamma.$
+
+**Case when $\delta_i = 0$ for all $i=1, \cdots, n$:**
+
+In the case that $\delta_i=0$ for all $i = 1, \cdots, n$ then $\bb v_1 = \bb v_2 = \bb 0$.  Thus we leave out the random effects and only sample $\bb{\beta}$. The prior for $\bb{\beta}$ is  $\bb{\beta} \sim N_j(\bb{0}_j, k^2 \bb{I}_j)$ where $k^2$ is a large constant. The posterior distribution of $\bb \beta$ is proportional to 
+\begin{align*}
+    \pi(\bb \beta \given \bb{y}, \bb{X}, \bb{D}) &\propto exp \set{-\tfrac{1}{2} (\bb{y} - \bb{X\beta})^\top \bb{D}^{ -1} (\bb{y} - \bb{X\beta}) } \times exp\set{-\tfrac{1}{2} \bb{\beta}^\top (\bb{I}_j/ k^2) \bb{\beta}} .
+\end{align*}
+The terms inside the exponential can be combined by completing squared to yield 
+\begin{align*}
+  [\bb \beta \given \sigma_1^2, \sigma_2^2, data] \sim N_{j} \bigg( \bb{P}_\beta^{ -1} \bb{D}^{ -1} \bb{X}^{\top }  \bb{y}, \, \bb{P}_\beta^{ -1}\bigg ) \textspace{where}{2mm} \bb{P}_\beta = \bb{X}^\top \bb{D}^{ -1} \bb{X} + \bb{I}_j/ k^2.
+\end{align*}
+
+## Full conditional distribution of $\bb{\delta}$
+
+Note that we can rewrite the conditional posterior distribution by re-grouping the normal likelihood between areas with and without random effects: 
+\begin{align*}
+    \pi(\bb \delta\given  \cdots ) &\propto \prod_{i=1}^n \phi(y_i \given \bb{x}_i^\top \bb{\beta} + v_{1i}+v_{2i}, \, d_i )^{\delta_i} \phi \big( y_i \given \bb{x}_i^\top \bb{\beta}, \, d_i \big)^{1-\delta_i} \times  \prod_{i=1}^n  p_i^{\delta_i} (1-p_i)^{1-\delta_i} \\
+    &=\prod_{i=1}^n \big[ p_i \times \phi(y_i \given \bb{x}_i^\top \bb{\beta} + v_{1i}+v_{2i}, \, d_i ) \big]^{\delta_i} \big[(1-p_i) \times \phi \big( y_i \given \bb{x}_i^\top \bb{\beta}, \, d_i \big)]^{1-\delta_i}.
+\end{align*}
+The term $\phi (z \given \mu, \kappa^2)$ is the normal density function with mean $\mu$ and variance $\kappa^2$, evaluated at the point $z$.  The equality above yields the full conditional distribution of $\bb \delta$ which is
+\begin{align*}
+  [\delta_i \given p_i, v_{1i}, v_{2i}, \bb \beta, data ] \stackrel{ind}\sim Bernoulli (\tilde p_i) \textspace{for}{1mm} i = 1, \cdots, n.
+\end{align*}
+The posterior selection probability $\tilde p_{i}$ for area $i$, is given by 
+\begin{align*}
+ \tilde p_{i} &= \frac{p_i \cdot \phi \big(y_i \given \bb{x}_i^\top \bb{\beta} + v_{1i}+v_{2i}, \, d_i \big)}{p_i \cdot \phi \big(y_i \given \bb{x}_i^\top \bb{\beta} +v_{1i}+v_{2i}, \, d_i \big) + (1-p_i) \cdot \phi \big( y_i \given \bb{x}_i^\top \bb{\beta}, \, d_i \big)}  \\
+ &= p_i \, \big / \bigg ( p_i + (1-p_i) exp \bigset{\tfrac{1}{2 d_i}(v_{1i}+v_{2i})^2 - (y_i-\bb{x}_i^\top \bb{\beta})(v_{1i}+v_{2i})}\bigg ).
+\end{align*}
+where the second equality results from simplifying the terms, which was used for the Gibbs sampler for numerical efficiency. 
+
+
+## Full conditional distributions of $\bb \psi_1$, $\bb \psi_2$ (Pólya-Gamma Data Augmentation)
+
+The posterior conditional distribution of $\bb \psi_1, \bb \psi_2$ can be sampled with Pólya-Gamma (PG) data augmentation [Polson et al., 2013].  A random variable with a PG distribution with parameters $b>0$ and $c \ \in \R$, is denoted as $X \sim PG(b, c)$. For more on the PG random variable, including its formal definition, we refer you to Polson et al., (2013).
+
+Let $\kappa = a - b/2$ and $w \sim PG(b, 0)$ with density function $f(w)$. The core integral identity of the PG data augmentation is the following:
+\begin{align}
+ \frac{(e^\varphi)^a}{(1+e^\varphi)^b} &= 2^{-b} e^{\kappa \varphi} \int^\infty_0 e^{-w \varphi^2/2} f(w) dw   \\
+ &= 2^{-b} \int^\infty_0  exp \{-\tfrac{1}{2} w (\varphi - \kappa/w)^2\} e^{(\kappa/w)^2 } f(w) dw. 
+\end{align}
+Note that introducing the latent variable $w$ results in being able to express the likelihood of $\varphi$ as a normal distribution. Conditional on $w$, $\varphi$ is a normal distribution with mean $\kappa/w$ and precision $w$. 
+
+In our model, the probability mass function for $\delta_i$ is
+$$p_i^{\delta_i} (1-p_i)^{1-\delta_i} = \bigg ( \frac{e^{\psi_{1i} + \psi_{2i}}}{1+e^{\psi_{1i} + \psi_{2i}}} \bigg )^{\delta_i} \bigg ( \frac{1}{1+e^{\psi_{1i} + \psi_{2i}}} \bigg )^{1-\delta_i}= \frac{(e^{\psi_{1i} + \psi_{2i}})^{\delta_i}}{(1+e^{\psi_{1i} + \psi_{2i}})}.$$
+In this case, we have $a=\delta_i$ and $b=1$ with  $\kappa_i=\delta_i-1/2$. We also substute $\varphi$ with the logit effects $\psi_{1i} + \psi_{2i}$. To perform the data augmentation, we introduce $[w_i] \sim PG(1, 0)$ for each $i=1, \cdots, n$. Similar to the second line in the integral identity (2),  introducing the latent variables $w_i$ allows the likelihood of $\psi_{1i}+ \psi_{2i}$ to be expressed as a mixture of normal distributions with mean $\kappa_i/w_i$ and precision $w_i$. We use this to sample the full conditional distributions of $\bb \psi_1, \bb \psi_2$ in a block.
+
+We set the blocked logit effects $\mathit{\Psi} =\begin{pmatrix}
+  \bb \psi_1^\top, & \bb \psi_2^\top
+\end{pmatrix}^\top$ and $\bb{H} = \begin{pmatrix} \bb{I}_n & \bb{I}_n \end{pmatrix}$.  Note that $h_i^\top\mathit{\Psi} =  \psi_{1i} + \psi_{2i}$ where $h_i$ is the $i$th row of $\bb{H}$. The prior for $\mathit{\Psi}$ is given by 
+
+$$\mathit{\Psi}  \sim N_{2n} (\bb{0}_{2n}, \,  \bb{\Lambda_\Psi}^{-1}) \textspace{where}{1mm} \bb{\Lambda}_\Psi = \begin{pmatrix}
+   \bb{I}_n / s^2_1 & 0 \\
+  0 & \bb{Q} / s^2_{2}
+\end{pmatrix}.$$
+We introduce PG latent variables $[w_i] \sim PG(1, 0)$ and set $\bb W = \textrm{diag}\{w_i\}^n_{i=1}$. Also, we set $\bb \kappa = \begin{pmatrix}
+  \delta_1 - 1/2, & \cdots, & \delta_n - 1/2
+\end{pmatrix}^\top$. The full conditional posterior distribution is then proportional to: 
+\begin{align*}
+     \pi(\mathit{\Psi} \given  \cdots ) &\propto  exp \set{-\tfrac{1}{2} (\bb{H}\mathit{\Psi} - \bb{W}^{-1} \bb{\kappa})^\top \bb{W} (\bb{H}\mathit{\Psi} - \bb{W}^{-1} \bb{\kappa}) } \times exp\set{-\tfrac{1}{2} \mathit{\Psi}^\top \bb{\Lambda}_\Psi  \mathit{\Psi}}.
+\end{align*}
+The terms inside the exponential can be combined by completing squared to get 
+\begin{align*}
+  [\mathit{\Psi} \given s_1^2, s_2^2, \bb W] \sim N_{2n} \bigg( \bb{P}_\Psi^{ -1} \bb{H}^\top \bb \kappa, \, \bb{P}_\Psi^{ -1}\bigg ) \textspace{where}{1mm} \bb{P}_\Psi = \bb{H}^\top \bb{W} \bb{H} + \bb{\Lambda}_\Psi.
+\end{align*}
+
+
+**Latent Variables $w_i$**
+
+Note that a $X \sim PG(b, c)$ random variable variable has the density function proportional to
+$$\pi (x \given b, c) \propto exp(- \tfrac{c^2}{2} x) f(x \given b, 0),$$
+where $f(x \given b, 0)$ is the density function of a $PG(b, 0)$ random variable [Polson et al., 2013]. If we simply substitute $\varphi = \psi_{1i} + \psi_{2i}$ into the integral identity (1), we see that using PG data augmentation for this model will result in a $PG(1, \psi_{1i} + \psi_{2i})$ distribution. Thus, the latent variables are conjugate and can be sampled from
+$$[w_i \given \mathit{\Psi}] \stackrel{ind}\sim PG(1, h_i^\top \mathit{\Psi} )$$ 
+for $i=1, \cdots, n$, where $h_i$ is the $i$th row of $\bb{H} = \begin{pmatrix} \bb{I}_n & \bb{I}_n \end{pmatrix}$ and $h_i^\top \mathit{\Psi} = \psi_{1i} + \psi_{2i}$.
+
+
+## Full conditional distributions of $\sigma^2_1, \sigma^2_2$ and $s_1^2, s_2^2$
+
+Given an inverse-gamma $IG(c, d)$ prior, the conditional posterior distribution of $\sigma_1^2$ is proportional to 
+$$\pi(\sigma_1^2  \given \cdots) \propto   (\tfrac{1}{\sigma_1^2} )^{n/2}  exp \bigset{-\tfrac{ \bb{v_1}^\top\bb{v_1}}{2}/ \sigma_1^2 } \times  (\tfrac{1}{\sigma_1^2} )^{c+1}exp(-d/\sigma_1^2).$$
+We group terms to get the full conditional distribution $[\sigma_1^2 \given \bb v_1] \sim IG(n/2 + c, \bb v_1^\top \bb v_1/2 + d)$. 
+
+The conditional posterior distribution of $\sigma_2^2$ is proportional to 
+$$\pi(\sigma_2^2  \given \cdots) \propto    (\tfrac{1}{\sigma_2^2} )^{n/2} exp\bigset{ -\tfrac{\bb{v_2}^\top \bb{Q}\bb{v_2}}{2 }  /\sigma_2^2} \times  (\tfrac{1}{\sigma_2^2} )^{c+1}exp(-d/\sigma_2^2)$$
+We group terms to get the full conditional distribution $[\sigma_2^2 \given \bb v_2] \sim IG(n/2 + c, \bb v_2^\top \bb{Q} \bb v_2/2 + d)$. 
+
+Note that the other set of variance parameters $(s_1^2, s_2^2)$ have $IG(r, q)$ priors. They can be similarly derived to yield
+$$[s_1^2 \given \bb \psi_1] \sim IG(n/2 + r, \bb \psi_1^\top \bb \psi_1/2 + q) \textspace{and}{ 2mm} [s_2^2 \given \bb \psi_2] \sim IG(n/2 + r, \bb \psi_2^\top \bb{Q} \bb \psi_2/2 + q).$$
+
 
