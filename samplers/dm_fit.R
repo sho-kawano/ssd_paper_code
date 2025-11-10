@@ -1,6 +1,6 @@
 library(LaplacesDemon); library(dplyr)
 
-source("~/coding/sparse_sae_code/utility_functions/mcmc_helper.R")
+source("samplers/mcmc_helper.R")
 
 #' Description: runs one MCMC chain to fit a Datta-Mandal Model. 
 #' @param X the covariates (from model.matrix, include intercept)

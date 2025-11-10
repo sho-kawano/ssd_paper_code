@@ -492,8 +492,7 @@ d.var <- all_data$povPercSE^2
 y.star <- log(y)
 d.star <- d.var / y^2
 
-# load sampler 
-setwd("~/coding/spike_slab_fh/ssd_paper_code")
+# load sampler
 source("samplers/ssd_fit.R")
 
 # function to iterate over 
