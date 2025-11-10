@@ -1,6 +1,27 @@
+# Directories
 archive/
-.Rapp.history
-.DS_Store
-.Rhistory
-.DS_Store
 stash/
+
+# R history and session files
+.Rapp.history
+.Rhistory
+.RData
+.Rdata
+
+# RStudio files
+.Rproj.user/
+*.Rproj
+
+# macOS system files
+.DS_Store
+
+# R data files (results, simulations)
+*.RDA
+*.rda
+*.RDS
+*.rds
+
+# Output and result files
+sim_results_*/
+data_analysis_chains/*.RDA
+*.txt
